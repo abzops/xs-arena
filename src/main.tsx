@@ -20,6 +20,12 @@ import { Dashboard } from './features/dashboard/Dashboard';
 import { LandingPage } from './features/landing/LandingPage';
 import { errorMessage } from './lib/errors';
 
+const DesignerPage = lazy(() => import('./features/floor/DesignerPage').then((m) => ({ default: m.DesignerPage })));
+const PricesPage = lazy(() => import('./features/prices/PricesPage').then((m) => ({ default: m.PricesPage })));
+const BillsPage = lazy(() => import('./features/billing/BillsPage').then((m) => ({ default: m.BillsPage })));
+const BillPage = lazy(() => import('./features/billing/BillPage').then((m) => ({ default: m.BillPage })));
+const ShiftPage = lazy(() => import('./features/shift/ShiftPage').then((m) => ({ default: m.ShiftPage })));
+const TvPage = lazy(() => import('./features/tv/TvPage').then((m) => ({ default: m.TvPage })));
 const FloorPage = lazy(() => import('./features/floor/FloorPage').then((m) => ({ default: m.FloorPage })));
 const CustomersPage = lazy(() => import('./features/customers/CustomersPage').then((m) => ({ default: m.CustomersPage })));
 const CustomerDetail = lazy(() => import('./features/customers/CustomerDetail').then((m) => ({ default: m.CustomerDetail })));
@@ -100,11 +106,17 @@ const router = createBrowserRouter(
     <>
       <Route path="/" element={<Root />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/tv" element={<Suspense fallback={<Splash />}><TvPage /></Suspense>} />
       <Route element={<RequireAuth />}>
         <Route path="/setup" element={<SetupCentre />} />
         <Route path="/s/:slug" element={<CentreLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="floor" element={<Allow perm="floor.operate"><FloorPage /></Allow>} />
+          <Route path="designer" element={<Allow perm="floor.design"><DesignerPage /></Allow>} />
+          <Route path="prices" element={<Allow><PricesPage /></Allow>} />
+          <Route path="bills" element={<Allow perm="billing.create"><BillsPage /></Allow>} />
+          <Route path="bills/:billId" element={<Allow><BillPage /></Allow>} />
+          <Route path="shift" element={<Allow perm="floor.operate"><ShiftPage /></Allow>} />
           <Route path="customers" element={<Allow><CustomersPage /></Allow>} />
           <Route path="customers/:customerId" element={<Allow><CustomerDetail /></Allow>} />
           <Route path="snacks" element={<Allow><InventoryPage /></Allow>} />

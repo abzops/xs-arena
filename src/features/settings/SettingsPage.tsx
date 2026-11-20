@@ -7,6 +7,9 @@ import { Field, Notice, useToast } from '../../components/ui';
 import { errorMessage } from '../../lib/errors';
 import { supabase } from '../../lib/supabase';
 import { PLAN_LABEL, ROLE_LABEL } from '../../lib/types';
+import { AlertSettings } from '../floor/FloorPage';
+import { TvSettings } from '../tv/TvSettings';
+import { Link } from 'react-router';
 
 export function SettingsPage() {
   const { centre, can, role, plan, subscription } = useCentre();
@@ -41,6 +44,19 @@ export function SettingsPage() {
       <div className="page-head"><h1>Settings</h1></div>
 
       <div className="card appearance-row"><h2>Appearance</h2><AppearanceControl /></div>
+
+      <section className="card stack">
+        <h2>Alerts on this device</h2>
+        <AlertSettings />
+      </section>
+
+      {owner && (
+        <section className="card row" style={{ justifyContent: 'space-between' }}>
+          <div><h2>Floor & prices</h2><p className="muted" style={{ fontSize: 'var(--t-sm)' }}>Draw your hall, place tables, consoles and tracks, and set prices.</p></div>
+          <div className="row"><Link className="btn" to={`/s/${centre.slug}/designer`}>Floor designer</Link><Link className="btn" to={`/s/${centre.slug}/prices`}>Prices</Link></div>
+        </section>
+      )}
+      {owner && <TvSettings />}
 
       <section className="card row" style={{ justifyContent: 'space-between' }}>
         <div><h2>Plan</h2><p className="muted" style={{ fontSize: 'var(--t-sm)' }}>

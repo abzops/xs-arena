@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, Gift, LayoutGrid, Package, Search, UserPlus, UsersRound, Wallet } from 'lucide-react';
+import { ChevronRight, Gift, IndianRupee, LayoutGrid, Package, Receipt, Search, Timer, UserPlus, Users, Wallet } from 'lucide-react';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { Loading, Notice, PushLink } from '../../components/ui';
@@ -13,6 +13,8 @@ type Summary = {
   today: string; revenue_today: number; collected_today: number; bills_today: number; methods_today: Record<string, number>;
   revenue_month: number; expenses_month: number; expenses_by_category: Record<string, number>;
   new_customers_month: number; customers_total: number; team_total: number; low_stock: number;
+  by_activity_today: Record<string, number>; snacks_today: number; busy_now: number; resources_total: number; waiting_now: number;
+  open_tabs: number; dues_paise: number; last7: { d: string; v: number }[];
   birthdays_week: { id: string; name: string; phone: string; date: string }[];
 };
 
@@ -50,12 +52,12 @@ export function Dashboard() {
       <nav className="quick" aria-label="Quick actions">
         {can('floor.operate') && <Link className="q primary" to={`${base}/floor`}><span className="q-ico"><LayoutGrid size={22} /></span><span>Floor</span></Link>}
         <Link className="q" to={`${base}/customers`}><span className="q-ico"><Search size={21} /></span><span>Find customer</span></Link>
+        {can('billing.create') && <Link className="q" to={`${base}/bills`}><span className="q-ico"><Receipt size={21} /></span><span>Bills</span></Link>}
         {can('expenses.manage') && <Link className="q" to={`${base}/expenses?new=1`}><span className="q-ico"><Wallet size={21} /></span><span>Add expense</span></Link>}
-        <Link className="q" to={`${base}/snacks`}><span className="q-ico"><Package size={21} /></span><span>Snacks</span></Link>
       </nav>
 
-      <div className="hero-card">
-        <span className="hc-top"><span>Sales today · {s.bills_today} bill{s.bills_today === 1 ? '' : 's'}</span></span>
+      <PushLink className="hero-card" to={can('billing.create') ? `${base}/bills` : base}>
+        <span className="hc-top"><span>Sales today · {s.bills_today} bill{s.bills_today === 1 ? '' : 's'}</span><ChevronRight size={18} /></span>
         <span className="hc-value num">{formatINR(s.revenue_today)}</span>
         <span className="paybar" aria-hidden>
           <i className="s-cash" style={{ width: pct(cash) }} />
@@ -67,32 +69,50 @@ export function Dashboard() {
           <span><i className="s-upi" />UPI <b className="num">{formatINR(upi)}</b></span>
           {other > 0 && <span><i className="s-other" />Card & other <b className="num">{formatINR(other)}</b></span>}
         </span>
-      </div>
+      </PushLink>
 
       <section className="stats" aria-label="At a glance">
-        <PushLink className="stat" to={`${base}/customers`}>
-          <span className="st-label"><UserPlus size={16} />New customers</span>
-          <span className="st-value num">{s.new_customers_month}</span>
-          <span className="st-sub">this month · {s.customers_total} total</span>
+        <PushLink className="stat" to={`${base}/floor`}>
+          <span className="st-label"><Timer size={16} />Playing now</span>
+          <span className="st-value num">{s.busy_now}<small style={{ fontSize: '0.5em', opacity: 0.6 }}> / {s.resources_total}</small></span>
+          <span className="st-sub">{s.waiting_now ? `${s.waiting_now} waiting` : 'tables, consoles, tracks'}</span>
+        </PushLink>
+        <PushLink className="stat" to={`${base}/floor`}>
+          <span className="st-label"><Receipt size={16} />Open bills</span>
+          <span className="st-value num">{s.open_tabs}</span>
+          <span className="st-sub">not yet paid</span>
+        </PushLink>
+        <PushLink className="stat" to={`${base}/bills`}>
+          <span className="st-label"><IndianRupee size={16} className={s.dues_paise > 0 ? 'tone-bad' : undefined} />Dues</span>
+          <span className={`st-value num ${s.dues_paise > 0 ? 'due' : ''}`}>{formatINR(s.dues_paise)}</span>
+          <span className="st-sub">balance to collect</span>
         </PushLink>
         <PushLink className="stat" to={`${base}/snacks?low=1`}>
           <span className="st-label"><Package size={16} className={s.low_stock > 0 ? 'tone-warn' : undefined} />Low stock</span>
           <span className="st-value num">{s.low_stock}</span>
           <span className="st-sub">snacks to reorder</span>
         </PushLink>
+        <PushLink className="stat" to={`${base}/customers`}>
+          <span className="st-label"><UserPlus size={16} />New customers</span>
+          <span className="st-value num">{s.new_customers_month}</span>
+          <span className="st-sub">this month · {s.customers_total} total</span>
+        </PushLink>
         <PushLink className="stat" to={`${base}/team`}>
-          <span className="st-label"><UsersRound size={16} />Team</span>
+          <span className="st-label"><Users size={16} />Team</span>
           <span className="st-value num">{s.team_total}</span>
           <span className="st-sub">active logins</span>
         </PushLink>
-        {can('expenses.manage') && (
-          <PushLink className="stat" to={`${base}/expenses`}>
-            <span className="st-label"><Wallet size={16} />Expenses</span>
-            <span className="st-value num">{formatINR(s.expenses_month)}</span>
-            <span className="st-sub">this month</span>
-          </PushLink>
-        )}
       </section>
+
+      {(Object.keys(s.by_activity_today).length > 0 || s.snacks_today > 0) && (
+        <section className="month">
+          <h2>Today by game</h2>
+          <ul className="ios-list">
+            {Object.entries(s.by_activity_today).sort((a, b) => b[1] - a[1]).map(([k, v]) => <li key={k}><span>{k}</span><b className="num">{formatINR(v)}</b></li>)}
+            {s.snacks_today > 0 && <li><span>Snacks & extras</span><b className="num">{formatINR(s.snacks_today)}</b></li>}
+          </ul>
+        </section>
+      )}
 
       {can('reports.view') && (
         <section className="month">

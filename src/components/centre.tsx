@@ -191,3 +191,43 @@ function WhatsAppSheet({ phone, kind, facts, onClose }: { phone: string; kind: W
     </Sheet>
   );
 }
+
+/* ---------- WhatsApp with ready-made English / Malayalam text ----------
+   For floor and bill messages (game started, time up, receipt, table ready). Nothing is sent
+   automatically: it opens WhatsApp with the text filled in and staff press send. */
+export type WaPair = { en: string; ml: string };
+
+export function WhatsAppPairButton({ phone, name, texts, label = 'WhatsApp', small = true, block = false }: {
+  phone: string; name: string; texts: WaPair; label?: string; small?: boolean; block?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className={`btn${small ? ' small' : ''}${block ? ' block' : ''} wa`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
+        aria-label={`${label}: message ${name}`}>
+        <MessageCircle size={16} aria-hidden /> <span className="btn-text">{label}</span>
+      </button>
+      {open && <WhatsAppPairSheet phone={phone} name={name} texts={texts} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+export function WhatsAppPairSheet({ phone, name, texts, onClose }: { phone: string; name: string; texts: WaPair; onClose: () => void }) {
+  const [lang, setLangState] = useState<Lang>(readLang);
+  const [text, setText] = useState(() => texts[lang]);
+  const setLang = (l: Lang) => { setLangState(l); setText(texts[l]); try { localStorage.setItem(LANG_KEY, l); } catch { /* private mode */ } };
+  return (
+    <Sheet title={`Message ${name}`} onClose={onClose}>
+      <div className="stack lg">
+        <Segmented label="Language" value={lang} onChange={setLang} options={[{ value: 'en', label: 'English' }, { value: 'ml', label: 'മലയാളം' }]} />
+        <label className="field"><span>Message</span>
+          <textarea className="input" rows={8} value={text} onChange={(e) => setText(e.target.value)} />
+        </label>
+        <p className="muted" style={{ margin: 0 }}>Opens WhatsApp with this message to {phone}. You press send there.</p>
+        <a className="btn primary block xl wa" href={waLink(phone, text)} target="_blank" rel="noopener noreferrer" onClick={() => setTimeout(onClose, 300)}>
+          <MessageCircle size={18} aria-hidden /> Open WhatsApp
+        </a>
+      </div>
+    </Sheet>
+  );
+}

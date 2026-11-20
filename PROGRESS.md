@@ -28,5 +28,25 @@ Plan: Xelorsoft project doc `claude/xs-arena-implementation-plan.md` (go-live Sa
 - `0007_function_grants.sql`: no function callable signed out.
 - Tests `0002_floor_sessions.test.sql`: 50-min billable with pause, replays, busy table, transfer rules, future device time ignored, extend, group bill, RC slot, roles, waitlist seat, versioned prices (old game keeps old price), floor save conflicts, isolation, ledger immutability, anon blocked. Mutation-checked (a broken timer fails the test).
 
-## Next — Day 3 · Sun 22 Nov
-Floor designer (owner only): draw hall (rectangle / L / polygon), drag-drop pool, snooker, PS5, RC tracks, custom shapes and fixtures; rotate/resize; starter layout from counts; multiple floors; save via `save_floor`. Prices screen on top of `save_rate_card`.
+## Days 3–6 · Sat 21 Nov — Everything for go-live ✅ (built in one push)
+
+**Database** (`0008_billing.sql`, `0009`, `0010`)
+- Pricing engine (`_price_session`, `price_session`): per-minute with peak/happy-hour split minute-by-minute on the local clock, minimum charge, grace, overtime (own rate or normal), hourly blocks, per-slot with overtime, per-frame, per-player / extra-player. Lines rounded to the rupee.
+- Tabs: snacks/other items (`tab_add_item`, stock moves), `tab_preview`, `tab_set_customer`, `close_tab` (ends live games, snapshot lines, discount needs manager + reason, split payments, idempotent key, GST incl./excl.), `add_payment` (dues), `void_bill` (restores stock, voids payments).
+- Shifts: `open_shift`, `current_shift`, `close_shift` (expected = opening + cash − drawer expenses; difference needs a note).
+- TV: `tv_begin` / `tv_poll` (signed-out TV with secret token, 6-digit code), `tv_link` (owner, plan limit), `tv_revoke`. Customer mode hides names, phones, money.
+- `floor_state` now has running cost + open bills; `dashboard_summary` has real sales, by game, snacks, busy now, waiting, dues, last 7 days.
+- Fixes: designer `points: null`; quick layout may reuse names of replaced items.
+- Tests `0003_billing.test.sql`: exact rupee amounts for every rule (45 min, minimum, started minute, grace, overtime, pause, live price, void, peak split, hourly blocks + grace, PS5 extra players, RC per car + overtime, frames), group bill, roles, idempotent close, discount rules, partial + dues, void restores stock, GST, dashboard, shift expected cash, TV pairing/privacy/plan limit.
+
+**Screens**
+- Floor designer (owner): rectangle / L / custom hall with draggable corners, palette for every game + counter/entrance/café/toilet/wall/TV, drag, resize, rotate, duplicate, out of service, online-bookable, quick layout from counts, multiple halls, version-safe save, unsaved-changes guard.
+- Live floor: map or list, live timers (device-independent), colours (free / playing / paused / 5 min / time's up blinking / out of service), walk-in in one sheet (phone → known customer, players, open timer or 30/60/90/120 or RC slots, add to an open group bill), pause / resume / +time / move / players / frames / end & bill / cancel (manager), 5-min and time's-up alerts with optional beep + phone notifications, waiting list (add, WhatsApp "table ready", seat onto a free table), open bills, offline banner + queued commands.
+- Bill: games priced live with in/out times, snacks grid, other items, customer, discount + reason, cash (change), UPI QR with exact amount, card, split (rest button, dues), close.
+- Receipt: in-time / out-time per game, print (80 mm), WhatsApp receipt English / Malayalam with UPI pay link for dues, collect dues, void.
+- Bills list (by day, dues), Shift & cash (open, live figures, close with count, history), Games & prices (all rules, special prices, add a game), TV display `/tv` (pairing code, live floor, free now, finishing soon, waiting list, keeps screen awake), Settings → TV screens + device alerts + floor/prices links, dashboard with real sales, customer visit history.
+- Browser end-to-end check (laptop + phone + TV) passes with no console errors.
+
+## Next
+- Pilot centre setup (their floor, prices, staff, UPI ID).
+- Phase 2 (from 30 Nov): online booking + 20% advance + QR check-in, loyalty points, XS AI, RC fleet.

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useParams } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { WhatsAppButton } from '../../components/centre';
-import { BackLink, Empty, Loading, Notice, Sheet, initials } from '../../components/ui';
+import { BackLink, Empty, Loading, Notice, PushLink, Sheet, StatusBadge, initials } from '../../components/ui';
+import { minutesLabel } from '../../lib/floor';
 import { formatDate, todayInCentre } from '../../lib/dates';
 import { errorMessage } from '../../lib/errors';
 import { formatINR } from '../../lib/money';
@@ -27,11 +28,21 @@ export function CustomerDetail() {
       return data as Customer | null;
     },
   });
+  const bills = useQuery({
+    queryKey: ['bills', centre.id, 'customer', customerId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('bills').select('id, bill_no, created_at, status, total_paise, paid_paise, lines')
+        .eq('customer_id', customerId).order('created_at', { ascending: false }).limit(100);
+      if (error) throw error;
+      return data as { id: string; bill_no: string; created_at: string; status: string; total_paise: number; paid_paise: number;
+        lines: { games: { resource: string; activity: string; minutes: number }[]; items: { name: string }[] } }[];
+    },
+  });
   if (c.isPending) return <Loading rows={4} />;
   if (c.error) return <Notice tone="bad">{errorMessage(c.error)}</Notice>;
   const d = c.data;
   if (!d) return <Empty title="Customer not found" />;
-  const due = 0; // balance due arrives with billing
+  const due = (bills.data ?? []).filter((b) => ['partial', 'unpaid'].includes(b.status)).reduce((a, b) => a + b.total_paise - b.paid_paise, 0);
   const isBirthdayMonth = d.date_of_birth?.slice(5, 7) === todayInCentre(tz).slice(5, 7);
   const waKind = due > 0 ? 'dues' : isBirthdayMonth ? 'birthday' : d.last_visit_at && Date.now() - Date.parse(d.last_visit_at) > 45 * 864e5 ? 'comeback' : 'hello';
 
@@ -70,8 +81,16 @@ export function CustomerDetail() {
         </section>
       )}
 
-      <section className="card">
-        <Empty title="Visit history starts with the first bill">Sessions, snacks and bills for {d.full_name.split(' ')[0]} will show here.</Empty>
+      <section className="stack">
+        <h2>Visits</h2>
+        {bills.isPending ? <Loading rows={3} /> : !bills.data?.length ? <div className="card"><Empty title="No visits yet" /></div> : (
+          <ul className="list card flush">{bills.data.map((b) => (
+            <li key={b.id}><PushLink className="item" to={`${base}/bills/${b.id}`} style={b.status === 'void' ? { opacity: 0.55 } : undefined}>
+              <span className="main-col"><span className="title">{[...b.lines.games.map((g) => `${g.activity} ${minutesLabel(g.minutes)}`), ...b.lines.items.map((i) => i.name)].slice(0, 4).join(', ')}</span>
+                <span className="meta"><span className="num">{b.bill_no}</span><span>{formatDate(b.created_at.slice(0, 10))}</span></span></span>
+              <span className="end-col"><b className="num">{formatINR(b.total_paise)}</b><StatusBadge status={b.status} /></span></PushLink></li>
+          ))}</ul>
+        )}
       </section>
 
       {editing && <Sheet title="Edit customer" onClose={() => setEditing(false)}><CustomerForm customer={d} onDone={() => setEditing(false)} /></Sheet>}

@@ -50,7 +50,7 @@ begin
     jsonb_build_object('id', t1, 'activity_id', snooker, 'name', 'Table 1', 'x', 100, 'y', 100, 'w', 360, 'h', 180),
     jsonb_build_object('id', t2, 'activity_id', snooker, 'name', 'Table 2', 'x', 600, 'y', 100, 'w', 360, 'h', 180),
     jsonb_build_object('id', p1, 'activity_id', ps5, 'name', 'PS5 #1', 'x', 100, 'y', 600, 'w', 120, 'h', 80, 'capacity', 4),
-    jsonb_build_object('id', tr, 'activity_id', drift, 'name', 'Drift Track', 'x', 1200, 'y', 300, 'w', 600, 'h', 600, 'capacity', 6))));
+    jsonb_build_object('id', tr, 'activity_id', drift, 'name', 'Drift Track', 'x', 1200, 'y', 300, 'w', 600, 'h', 600, 'capacity', 6, 'points', null))));
   if (res->>'version')::int <> 2 then raise exception 'Floor version should be 2, got %', res->>'version'; end if;
   -- stale save is refused
   perform pg_temp.expect_error(format('select save_floor(%L, %L::jsonb)', c, jsonb_build_object('id', fl, 'version', 1)), 'changed by someone else');
@@ -148,6 +148,13 @@ begin
   -- removing a table with a live game is refused; removing a free one archives it
   perform pg_temp.expect_error(format('select save_floor(%L, %L::jsonb)', c, jsonb_build_object('id', fl, 'resources', jsonb_build_array(
     jsonb_build_object('id', t2, 'activity_id', snooker, 'name', 'Table 2')))), 'game running');
+  -- replacing an idle item with a new one of the same name works (quick layout)
+  perform save_floor(c, jsonb_build_object('id', fl, 'resources', jsonb_build_array(
+    jsonb_build_object('id', t2, 'activity_id', snooker, 'name', 'Table 2'),
+    jsonb_build_object('id', tr, 'activity_id', drift, 'name', 'Drift Track'),
+    jsonb_build_object('id', t1, 'activity_id', snooker, 'name', 'Table 1'),
+    jsonb_build_object('activity_id', ps5, 'name', 'PS5 #1'))));  -- new PS5 #1 replaces the idle one
+  if (select count(*) from resources where centre_id = c and status <> 'archived') <> 4 then raise exception 'Quick-layout replace failed'; end if;
   perform pg_temp.reset();
 
   -- Isolation: the other centre's owner sees none of this
