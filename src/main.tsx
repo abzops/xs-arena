@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { lazy, StrictMode, Suspense, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  createBrowserRouter, createRoutesFromElements, Link, Navigate, Outlet, Route, RouterProvider, useParams,
+  createBrowserRouter, createRoutesFromElements, Link, Navigate, Outlet, Route, RouterProvider, useLocation, useParams,
 } from 'react-router';
 import { AuthProvider, useAuth } from './app/auth';
 import { CentreProvider, useMyCentres, useCentre, useCentreBySlug } from './app/centre';
@@ -58,9 +58,14 @@ function Splash() {
 
 function RequireAuth() {
   const { session, loading, recovering } = useAuth();
+  const location = useLocation();
   if (loading) return <Splash />;
   if (recovering) return <SetNewPassword />;
-  if (!session) return <Navigate to="/" replace />;
+  if (!session) {
+    // Keep the link they opened, so sign-in brings them back to it.
+    const next = location.pathname + location.search;
+    return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
+  }
   return <Outlet />;
 }
 

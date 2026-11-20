@@ -10,11 +10,12 @@ function csp(supabaseUrl: string): Plugin {
   const api = new URL(supabaseUrl);
   const policy = [
     "default-src 'self'",
-    "script-src 'self'",
+    // Cloudflare Web Analytics is injected by the Cloudflare proxy in front of the site.
+    "script-src 'self' https://static.cloudflareinsights.com",
     "style-src 'self'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    `connect-src 'self' ${api.origin} wss://${api.host}`,
+    `connect-src 'self' ${api.origin} wss://${api.host} https://cloudflareinsights.com`,
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

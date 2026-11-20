@@ -57,6 +57,11 @@ function PasswordRow({ value, onChange, autoComplete, tabIndex }: {
   );
 }
 
+/** Only same-site paths, so a crafted ?next= can't send people to another website. */
+function safeNext(next: string | null): string {
+  return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : '/';
+}
+
 export function LoginPage() {
   const { session } = useAuth();
   const [params] = useSearchParams();
@@ -68,7 +73,7 @@ export function LoginPage() {
   const [sent, setSent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (session) return <Navigate to="/" replace />;
+  if (session) return <Navigate to={safeNext(params.get('next'))} replace />;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
