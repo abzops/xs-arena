@@ -76,7 +76,7 @@
 /* Laptop / iPad landscape: two columns, quick actions as pills beside the greeting */
 @media (min-width: 1000px) {
   .dash { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-areas:
-      "head head" "quick quick" "hero stats" "month recent"; align-items: start; column-gap: 24px; row-gap: 24px; }
+      "head head" "quick quick" "hero stats" "today month" "recent recent"; align-items: start; column-gap: 24px; row-gap: 24px; }
   .dash-head { grid-area: head; align-self: end; }
   .quick { grid-area: quick; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
   .q { white-space: nowrap; }
@@ -89,13 +89,14 @@
   .hero-card .paybar { margin-top: auto; }
   .hc-value { font-size: 3.5rem; }
   .stats { grid-area: stats; grid-template-columns: 1fr 1fr; }
+  .month.today { grid-area: today; }
   .month { grid-area: month; }
   .recent { grid-area: recent; }
   .dash-head h1 { font-size: 2.5rem; }
 }
 /* Wide screens: actions sit beside the greeting */
 @media (min-width: 1400px) {
-  .dash { grid-template-areas: "head quick" "hero stats" "month recent"; }
+  .dash { grid-template-areas: "head quick" "hero stats" "today month" "recent recent"; }
   .quick { justify-content: flex-end; align-self: end; }
 }
 @media (min-width: 1000px) and (hover: hover) and (pointer: fine) {

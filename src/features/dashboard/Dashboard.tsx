@@ -105,7 +105,7 @@ export function Dashboard() {
       </section>
 
       {(Object.keys(s.by_activity_today).length > 0 || s.snacks_today > 0) && (
-        <section className="month">
+        <section className="month today">
           <h2>Today by game</h2>
           <ul className="ios-list">
             {Object.entries(s.by_activity_today).sort((a, b) => b[1] - a[1]).map(([k, v]) => <li key={k}><span>{k}</span><b className="num">{formatINR(v)}</b></li>)}
