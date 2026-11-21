@@ -79,8 +79,8 @@
 .booking-row .bk-time .muted { font-size: var(--t-xs); }
 .booking-row .title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .booking-row .ticket-status { font-size: var(--t-xs); padding: 2px 8px; }
-.booking-row .meta { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.booking-row .game-dot { width: 9px; height: 9px; display: inline-block; }
+.booking-row .meta { display: block; }
+.booking-row .game-dot { width: 9px; height: 9px; display: inline-block; margin-right: 2px; vertical-align: 0; }
 .booking-row .code { font-family: var(--mono); letter-spacing: .08em; }
 .booking-row.st-cancelled, .booking-row.st-no_show { opacity: .6; }
 .bk-actions { flex: none; gap: 4px; }
@@ -98,3 +98,6 @@
 .mult-chip select { border: 0; background: transparent; font: inherit; font-weight: 700; color: inherit; }
 .hh-row { display: grid; gap: 8px; padding: 10px; border-radius: var(--r); background: var(--paper-2); }
 .hh-row .input[type=time] { width: auto; }
+
+.bookings-head { flex-wrap: wrap; gap: 10px; }
+.bookings-head h1 { flex: 1 0 auto; }

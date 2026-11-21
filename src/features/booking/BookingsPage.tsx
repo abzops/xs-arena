@@ -48,7 +48,7 @@ export function BookingsPage() {
 
   return (
     <div className="stack lg">
-      <div className="page-head">
+      <div className="page-head bookings-head">
         <h1>Bookings</h1>
         <div className="row">
           <button className="btn" onClick={() => setCreating(true)}><CalendarPlus size={18} /> New</button>
