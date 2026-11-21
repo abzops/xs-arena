@@ -32,8 +32,12 @@ function csp(supabaseUrl: string): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const supabaseUrl = env.VITE_SUPABASE_URL ?? '';
+  // Public sign-up switch (build-time). Default closed; same rule as parseFlag() in src/lib/flags.ts.
+  const signupOpen = /^(true|1|yes)$/i.test((process.env.SIGNUP_OPEN ?? env.SIGNUP_OPEN ?? '').trim());
   return {
     base: env.VITE_BASE_PATH || '/',
+    define: { __SIGNUP_OPEN__: JSON.stringify(signupOpen) },
+    test: { environment: 'node', include: ['src/**/*.test.ts'] },
     plugins: [react(), ...(supabaseUrl ? [csp(supabaseUrl)] : [])],
     build: {
       target: 'es2022',

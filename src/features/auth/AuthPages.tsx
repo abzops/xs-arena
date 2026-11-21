@@ -5,6 +5,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../app/auth';
 import { Collapse, Logo, Notice, Segmented, useToast } from '../../components/ui';
 import { errorMessage } from '../../lib/errors';
+import { DEMO_EMAIL, DEMO_MAILTO, SIGNUP_OPEN } from '../../lib/flags';
 import { rpc, supabase } from '../../lib/supabase';
 import './auth.css';
 
@@ -66,6 +67,7 @@ export function LoginPage() {
   const { session } = useAuth();
   const [params] = useSearchParams();
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>(params.get('mode') === 'signup' ? 'signup' : 'signin');
+  const closed = mode === 'signup' && !SIGNUP_OPEN;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -104,8 +106,8 @@ export function LoginPage() {
     }
   }
 
-  const title = mode === 'signin' ? 'Sign in to XS Arena' : mode === 'signup' ? 'Create your account' : 'Reset password';
-  const sub = mode === 'signin' ? 'Welcome back.' : mode === 'signup' ? '14 days free. Every feature.' : 'We’ll email you a link.';
+  const title = mode === 'signin' ? 'Sign in to XS Arena' : mode === 'signup' ? (SIGNUP_OPEN ? 'Create your account' : 'New to XS Arena?') : 'Reset password';
+  const sub = mode === 'signin' ? 'Welcome back.' : mode === 'signup' ? (SIGNUP_OPEN ? '14 days free. Every feature.' : 'Coming soon for new centres.') : 'We’ll email you a link.';
   const action = mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send link';
   const ready = !!email && (mode === 'reset' || !!password) && (mode !== 'signup' || !!name.trim());
 
@@ -116,7 +118,7 @@ export function LoginPage() {
         <p key={sub} className="swap muted">{sub}</p>
       </div>
 
-      {mode !== 'reset' && (
+      {mode !== 'reset' && SIGNUP_OPEN && (
         <Segmented
           label="Account"
           value={mode}
@@ -125,7 +127,13 @@ export function LoginPage() {
         />
       )}
 
-      {sent ? (
+      {closed ? (
+        <div className="stack signup-closed">
+          <Notice tone="info">XS Arena is opening to new centres soon. Email <a href={DEMO_MAILTO}>{DEMO_EMAIL}</a> for a demo.</Notice>
+          <a className="btn primary block" href={DEMO_MAILTO}>Get a demo</a>
+          <button type="button" className="btn ghost block" onClick={() => { setMode('signin'); setError(null); }}>I have an account — sign in</button>
+        </div>
+      ) : sent ? (
         <Notice tone="ok">{sent}</Notice>
       ) : (
         <form className="ios-form" onSubmit={submit} noValidate>

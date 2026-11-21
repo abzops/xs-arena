@@ -2,6 +2,7 @@ import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Logo } from '../../components/ui';
+import { primaryCta, SIGNUP_OPEN } from '../../lib/flags';
 import './landing.css';
 
 // Interim landing page for XS Arena. The full owner-first page (live floor demo,
@@ -59,7 +60,7 @@ export function LandingPage() {
           </nav>
           <div className="row">
             <Link className="btn ghost on-dark" to="/login">Sign in</Link>
-            <Link className="btn primary on-dark hide-phone" to="/login?mode=signup">Start free trial</Link>
+            <Cta className="btn primary on-dark hide-phone" />
           </div>
         </div>
       </header>
@@ -73,10 +74,10 @@ export function LandingPage() {
                 Every table, console and track on one live floor. Timers, bills, snacks and expenses — and today’s money on your phone wherever you are.
               </p>
               <div className="row rise" style={{ ['--d' as string]: '260ms' }}>
-                <Link className="btn primary on-dark lg" to="/login?mode=signup">Start 14-day free trial</Link>
+                <Cta className="btn primary on-dark lg" long />
                 <Link className="btn on-dark lg" to="/login">Sign in</Link>
               </div>
-              <p className="lp-hero-note rise" style={{ ['--d' as string]: '320ms' }}>No card needed. Nothing to install.</p>
+              <p className="lp-hero-note rise" style={{ ['--d' as string]: '320ms' }}>{SIGNUP_OPEN ? 'No card needed. Nothing to install.' : 'Nothing to install. We set up your centre with you.'}</p>
             </div>
           </div>
         </div>
@@ -87,7 +88,7 @@ export function LandingPage() {
           <p><b>Nothing to install</b>Works on the phone, tablet, laptop or TV you have</p>
           <p><b>Keeps running offline</b>Timers don’t stop if the internet drops</p>
           <p><b>English and Malayalam</b>For customer messages on WhatsApp</p>
-          <p><b>Stored in India</b>Each centre’s records kept separate</p>
+          <p><b>Each centre’s records kept separate</b>Only your own team sees your centre</p>
         </div>
       </section>
 
@@ -113,7 +114,7 @@ export function LandingPage() {
           <div className="lp-head">
             <h2>Set up in one afternoon.</h2>
             <ul className="ticks dark-ink">
-              <li><Check size={18} /> Sign up and name your centre</li>
+              <li><Check size={18} /> {SIGNUP_OPEN ? 'Sign up and name your centre' : 'Get a demo — we open your centre’s account'}</li>
               <li><Check size={18} /> Draw your floor and drop in your tables, consoles and tracks</li>
               <li><Check size={18} /> Add your prices and your team — and take the first walk-in</li>
             </ul>
@@ -125,9 +126,9 @@ export function LandingPage() {
         <div className="lp-wrap">
           <div className="cta-in">
             <h2>Try it on this weekend’s rush.</h2>
-            <p>14 days, every feature, your own centre.</p>
+            <p>{SIGNUP_OPEN ? '14 days, every feature, your own centre.' : 'See it on your own floor. We set it up with you.'}</p>
             <div className="row">
-              <Link className="btn primary on-dark lg" to="/login?mode=signup">Start free trial</Link>
+              <Cta className="btn primary on-dark lg" />
               <Link className="btn on-dark lg" to="/login">Sign in</Link>
             </div>
             <p className="cta-note">Questions first? Write to <a href="mailto:support@xelorsoft.com">support@xelorsoft.com</a></p>
@@ -139,7 +140,7 @@ export function LandingPage() {
         <div className="lp-wrap lp-foot-in">
           <div className="lp-foot-brand">
             <Mark dark={false} />
-            <p>Floor, timers, billing and expenses for gaming centres in India.</p>
+            <p>Floor, timers, billing and expenses for gaming centres.</p>
           </div>
           <nav aria-label="Footer">
             <a href="#features">Features</a>
@@ -147,17 +148,23 @@ export function LandingPage() {
             <Link to="/login">Sign in</Link>
           </nav>
           <nav aria-label="Xelorsoft">
-            <a href="https://xelorsoft.com">Xelorsoft</a>
+            <a href="https://xelorsoft.com/">Xelorsoft</a>
             <a href="https://gym.xelorsoft.com">XS Gym</a>
             <a href="https://salon.xelorsoft.com">XS Salon</a>
             <a href="mailto:support@xelorsoft.com">support@xelorsoft.com</a>
           </nav>
         </div>
         <div className="lp-wrap lp-foot-base">
-          <a href="https://xelorsoft.com" aria-label="Xelorsoft"><Logo width={96} /></a>
+          <a href="https://xelorsoft.com/" aria-label="Xelorsoft"><Logo width={96} /></a>
           <span>© 2026 Xelorsoft</span>
         </div>
       </footer>
     </div>
   );
+}
+
+/** Main call to action: the free trial when sign-up is open, otherwise "Get a demo" by email. */
+function Cta({ className, long = false }: { className: string; long?: boolean }) {
+  const c = primaryCta(SIGNUP_OPEN, long);
+  return c.external ? <a className={className} href={c.href}>{c.label}</a> : <Link className={className} to={c.href}>{c.label}</Link>;
 }
