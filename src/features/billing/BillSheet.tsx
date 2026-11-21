@@ -35,6 +35,21 @@ export function useTabPreview(tabId: string | null) {
   });
 }
 
+export type Points = { enabled: boolean; balance: number; value_paise: number; point_value_paise: number; min_redeem: number; usable: number;
+  next_expiry: string | null; history: { points: number; kind: string; note: string | null; at: string }[] };
+
+/** A customer's loyalty points; `billPaise` limits how many can be used on this bill. */
+export function usePoints(customerId: string | null, billPaise?: number) {
+  const { centre, hasFeature } = useCentre();
+  const q = useQuery({
+    queryKey: ['points', centre.id, customerId, billPaise ?? null],
+    enabled: !!customerId && hasFeature('loyalty'),
+    queryFn: () => rpc<Points>('customer_points', { p_centre: centre.id, p_customer: customerId, p_bill_paise: billPaise ?? null }),
+    placeholderData: (prev) => prev,
+  });
+  return q.data ?? null;
+}
+
 export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => void }) {
   const { centre, can } = useCentre();
   const qc = useQueryClient();
@@ -71,7 +86,11 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
   const t = tab.data;
   const sub = t?.subtotal_paise ?? 0;
   const disc = discount ? parseINR(discount) ?? -1 : 0;
-  const net = Math.max(0, sub - Math.max(0, disc));
+  const pts = usePoints(t?.customer?.id ?? null, Math.max(0, sub - Math.max(0, disc)));
+  const [usePts, setUsePts] = useState(false);
+  const ptsUsed = usePts && pts?.enabled && pts.usable > 0 ? pts.usable : 0;
+  const ptsPaise = ptsUsed * (pts?.point_value_paise ?? 0);
+  const net = Math.max(0, sub - Math.max(0, disc) - ptsPaise);
   const tax = !t?.gst_enabled ? 0 : t.prices_include_tax ? Math.round((net * t.gst_rate_bp) / (10000 + t.gst_rate_bp)) : Math.round((net * t.gst_rate_bp) / 10000);
   const total = t?.gst_enabled && !t.prices_include_tax ? net + tax : net;
   const payments = useMemo(() => {
@@ -82,13 +101,14 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
   const cashGiven = parseINR(received) ?? 0;
 
   const close = useMutation({
-    mutationFn: () => rpc<{ bill_id: string; bill_no: string }>('close_tab', {
+    mutationFn: () => rpc<{ bill_id: string; bill_no: string; points_earned?: number }>('close_tab', {
       p_centre: centre.id, p_tab: tabId, p_discount_paise: Math.max(0, disc), p_discount_reason: reason || null, p_payments: payments, p_key: key,
+      p_points: ptsUsed,
     }),
     onSuccess: async (b) => {
       await Promise.all([qc.invalidateQueries({ queryKey: ['floor', centre.id] }), qc.invalidateQueries({ queryKey: ['dashboard', centre.id] }),
         qc.invalidateQueries({ queryKey: ['bills', centre.id] }), qc.invalidateQueries({ queryKey: ['products', centre.id] })]);
-      toast(`Bill ${b.bill_no} saved`);
+      toast(`Bill ${b.bill_no} saved${b.points_earned ? ` · +${b.points_earned} points` : ''}`);
       onClose();
       navigate(`/s/${centre.slug}/bills/${b.bill_id}`);
     },
@@ -151,9 +171,21 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
             </div>
           )}
 
+          {pts?.enabled && t.customer && (
+            <div className="points-box">
+              <span><b className="num">{pts.balance}</b> points <span className="muted">· worth {formatINR(pts.value_paise)}</span></span>
+              {pts.usable > 0 ? (
+                <label className="check-row" style={{ padding: 0, minHeight: 0 }}>
+                  <input type="checkbox" checked={usePts} onChange={(e) => setUsePts(e.target.checked)} />
+                  <span>Use {pts.usable} points (−{formatINR(pts.usable * pts.point_value_paise)})</span></label>
+              ) : <span className="muted" style={{ fontSize: 'var(--t-sm)' }}>{pts.balance < pts.min_redeem ? `Can use from ${pts.min_redeem} points` : 'Not usable on this bill'}</span>}
+            </div>
+          )}
+
           <div className="stack" style={{ gap: 4 }}>
             <div className="bill-line" style={{ border: 0, padding: '2px 0' }}><span className="muted">Subtotal</span><span className="num">{formatINR(sub)}</span></div>
             {disc > 0 && <div className="bill-line" style={{ border: 0, padding: '2px 0' }}><span className="muted">Discount</span><span className="num">−{formatINR(disc)}</span></div>}
+            {ptsPaise > 0 && <div className="bill-line" style={{ border: 0, padding: '2px 0' }}><span className="muted">Points ({ptsUsed})</span><span className="num">−{formatINR(ptsPaise)}</span></div>}
             {tax > 0 && <div className="bill-line" style={{ border: 0, padding: '2px 0' }}><span className="muted">GST {t.gst_rate_bp / 100}%{t.prices_include_tax ? ' (included)' : ''}</span><span className="num">{formatINR(tax)}</span></div>}
             <div className="bill-total"><span>Total</span><span className="num">{formatINR(total)}</span></div>
           </div>

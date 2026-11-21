@@ -13,12 +13,12 @@ import { msgReceipt, upiLink, type ReceiptGame, type ReceiptItem } from '../../l
 import { formatINR, paiseToInput, parseINR } from '../../lib/money';
 import { rpc, supabase } from '../../lib/supabase';
 import { METHOD_LABEL, type Method } from '../../lib/types';
-import { UpiQr } from './BillSheet';
+import { UpiQr, usePoints } from './BillSheet';
 import '../floor/floor.css';
 
 type Bill = {
   id: string; bill_no: string; created_at: string; status: string; subtotal_paise: number; discount_paise: number; discount_reason: string | null;
-  tax_paise: number; gst_rate_bp: number; total_paise: number; paid_paise: number; void_reason: string | null;
+  tax_paise: number; gst_rate_bp: number; total_paise: number; paid_paise: number; void_reason: string | null; points_redeemed: number; points_paise: number;
   lines: { games: (ReceiptGame & { players: number })[]; items: (ReceiptItem & { unit_price_paise: number })[] };
   customers: { id: string; full_name: string; phone: string } | null;
   payments: { id: string; method: Method; amount_paise: number; status: string; created_at: string }[];
@@ -39,6 +39,15 @@ export function BillPage() {
       return data as Bill | null;
     },
   });
+  const earned = useQuery({
+    queryKey: ['bill-points', centre.id, billId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('loyalty_ledger').select('points, kind').eq('bill_id', billId);
+      if (error) throw error;
+      return (data as { points: number; kind: string }[]).filter((x) => ['earn', 'welcome', 'birthday'].includes(x.kind)).reduce((a, x) => a + x.points, 0);
+    },
+  });
+  const pts = usePoints(bill.data?.customers?.id ?? null);
   if (bill.isPending) return <Loading rows={5} />;
   if (bill.error) return <Notice tone="bad">{errorMessage(bill.error)}</Notice>;
   const b = bill.data;
@@ -50,7 +59,8 @@ export function BillPage() {
   const link = `${window.location.origin}/s/${centre.slug}/bills/${b.id}`;
   const wa = b.customers ? msgReceipt({
     name: b.customers.full_name, centre: centre.name, billNo: b.bill_no, tz, games: b.lines.games, items: b.lines.items, discount: b.discount_paise,
-    tax: b.tax_paise, total: b.total_paise, paid: b.paid_paise, methods, link, upiLink: due > 0 && centre.upi_id ? upiLink(centre.upi_id, centre.name, due, b.bill_no) : null,
+    tax: b.tax_paise, total: b.total_paise,
+    points: pts?.enabled ? { used: b.points_redeemed, usedPaise: b.points_paise, earned: earned.data ?? 0, balance: pts.balance } : null, paid: b.paid_paise, methods, link, upiLink: due > 0 && centre.upi_id ? upiLink(centre.upi_id, centre.name, due, b.bill_no) : null,
   }) : null;
 
   return (
@@ -83,11 +93,15 @@ export function BillPage() {
         <hr />
         <div className="r-row"><span>Subtotal</span><span className="num">{formatINR(b.subtotal_paise)}</span></div>
         {b.discount_paise > 0 && <div className="r-row"><span>Discount{b.discount_reason ? ` (${b.discount_reason})` : ''}</span><span className="num">−{formatINR(b.discount_paise)}</span></div>}
+        {b.points_paise > 0 && <div className="r-row"><span>Points used ({b.points_redeemed})</span><span className="num">−{formatINR(b.points_paise)}</span></div>}
         {b.tax_paise > 0 && <div className="r-row"><span>GST {b.gst_rate_bp / 100}%</span><span className="num">{formatINR(b.tax_paise)}</span></div>}
         <div className="r-row b"><span>Total</span><span className="num">{formatINR(b.total_paise)}</span></div>
         {okPays.map((p) => <div key={p.id} className="r-row"><span>Paid · {METHOD_LABEL[p.method]}</span><span className="num">{formatINR(p.amount_paise)}</span></div>)}
         {due > 0 && <div className="r-row b"><span>Balance due</span><span className="num">{formatINR(due)}</span></div>}
         <hr />
+        {pts?.enabled && b.status !== 'void' && (earned.data ?? 0) > 0 && (
+          <div className="r-row"><span>⭐ Points earned</span><span className="num">+{earned.data} · balance {pts.balance}</span></div>
+        )}
         <div className="r-meta">Thank you for playing! · XS Arena by Xelorsoft</div>
       </article>
 

@@ -94,3 +94,7 @@
 .switch-row { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
 .switch-row input { width: 22px; height: 22px; }
 .ticket-status.st-done { background: var(--paper-2); color: var(--graphite); }
+.mult-chip { display: inline-flex; align-items: center; gap: 6px; }
+.mult-chip select { border: 0; background: transparent; font: inherit; font-weight: 700; color: inherit; }
+.hh-row { display: grid; gap: 8px; padding: 10px; border-radius: var(--r); background: var(--paper-2); }
+.hh-row .input[type=time] { width: auto; }

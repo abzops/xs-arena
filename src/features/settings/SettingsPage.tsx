@@ -1,4 +1,5 @@
 import { BookingSettings } from '../booking/BookingSettings';
+import { LoyaltySettings } from '../loyalty/Loyalty';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import { useState } from 'react';
@@ -58,6 +59,7 @@ export function SettingsPage() {
         </section>
       )}
       {owner && <BookingSettings />}
+      {can('loyalty.manage') && <LoyaltySettings />}
       {owner && <TvSettings />}
 
       <section className="card row" style={{ justifyContent: 'space-between' }}>

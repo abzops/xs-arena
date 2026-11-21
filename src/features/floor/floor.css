@@ -122,3 +122,4 @@
 .upcoming-cta { font-weight: 700; font-size: var(--t-xs); color: var(--graphite); }
 .upcoming-card.st-arrived .upcoming-cta { color: var(--info); }
 .upcoming-card.st-late .upcoming-cta { color: var(--warn); }
+.points-box { display: grid; gap: 6px; background: var(--ok-bg); border-radius: var(--r); padding: 10px 12px; }

@@ -35,19 +35,23 @@ export type ReceiptItem = { name: string; qty: number; total_paise: number };
 
 export function msgReceipt(o: {
   name: string; centre: string; billNo: string; tz: string; games: ReceiptGame[]; items: ReceiptItem[]; discount: number; tax: number; total: number;
-  paid: number; methods: string; points?: null; link?: string; upiLink?: string | null;
+  paid: number; methods: string; points?: { used: number; usedPaise: number; earned: number; balance: number } | null; link?: string; upiLink?: string | null;
 }): WaPair {
   const gamesEn = o.games.map((g) => `• ${g.resource}: ${formatTime(g.started_at, o.tz)} → ${g.ended_at ? formatTime(g.ended_at, o.tz) : '—'} (${minutesLabel(g.minutes)}) ${formatINR(g.amount_paise)}`).join('\n');
   const gamesMl = o.games.map((g) => `• ${g.resource}: ${formatTime(g.started_at, o.tz)} → ${g.ended_at ? formatTime(g.ended_at, o.tz) : '—'} (${minutesLabel(g.minutes)}) ${formatINR(g.amount_paise)}`).join('\n');
   const items = o.items.map((i) => `• ${i.name} × ${i.qty} ${formatINR(i.total_paise)}`).join('\n');
   const due = o.total - o.paid;
   const en = [`Hi ${first(o.name)}, thanks for playing at ${o.centre}! 🎮`, `Bill ${o.billNo}`, gamesEn, items,
-    o.discount ? `Discount −${formatINR(o.discount)}` : '', o.tax ? `GST ${formatINR(o.tax)}` : '',
+    o.discount ? `Discount −${formatINR(o.discount)}` : '', o.points?.used ? `Points used (${o.points.used}) −${formatINR(o.points.usedPaise)}` : '',
+    o.tax ? `GST ${formatINR(o.tax)}` : '',
     `Total ${formatINR(o.total)}`, o.paid ? `Paid ${formatINR(o.paid)} (${o.methods})` : '', due > 0 ? `Balance due ${formatINR(due)}${o.upiLink ? `\nPay by UPI: ${o.upiLink}` : ''}` : '',
+    o.points && (o.points.earned || o.points.used) ? `⭐ +${o.points.earned} points · balance ${o.points.balance} points` : '',
     o.link ? `Receipt: ${o.link}` : '', 'See you again!'].filter(Boolean).join('\n');
   const ml = [`ഹായ് ${first(o.name)}, ${o.centre}-ൽ കളിക്കാൻ വന്നതിന് നന്ദി! 🎮`, `ബിൽ ${o.billNo}`, gamesMl, items,
-    o.discount ? `ഡിസ്കൗണ്ട് −${formatINR(o.discount)}` : '', o.tax ? `GST ${formatINR(o.tax)}` : '',
+    o.discount ? `ഡിസ്കൗണ്ട് −${formatINR(o.discount)}` : '', o.points?.used ? `പോയിന്റ് (${o.points.used}) −${formatINR(o.points.usedPaise)}` : '',
+    o.tax ? `GST ${formatINR(o.tax)}` : '',
     `ആകെ ${formatINR(o.total)}`, o.paid ? `അടച്ചത് ${formatINR(o.paid)} (${o.methods})` : '', due > 0 ? `ബാക്കി ${formatINR(due)}${o.upiLink ? `\nUPI വഴി അടയ്ക്കാം: ${o.upiLink}` : ''}` : '',
+    o.points && (o.points.earned || o.points.used) ? `⭐ +${o.points.earned} പോയിന്റ് · ആകെ ${o.points.balance} പോയിന്റ്` : '',
     o.link ? `രസീത്: ${o.link}` : '', 'വീണ്ടും കാണാം!'].filter(Boolean).join('\n');
   return { en, ml };
 }

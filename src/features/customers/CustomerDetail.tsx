@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Pencil, Phone } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
+import { CustomerPointsCard } from '../loyalty/Loyalty';
 import { useCentre } from '../../app/centre';
 import { WhatsAppButton } from '../../components/centre';
 import { BackLink, Empty, Loading, Notice, PushLink, Sheet, StatusBadge, initials } from '../../components/ui';
@@ -80,6 +81,8 @@ export function CustomerDetail() {
           </dl>
         </section>
       )}
+
+      <CustomerPointsCard customerId={customerId} />
 
       <section className="stack">
         <h2>Visits</h2>
