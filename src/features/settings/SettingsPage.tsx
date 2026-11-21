@@ -1,3 +1,4 @@
+import { BookingSettings } from '../booking/BookingSettings';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import { useState } from 'react';
@@ -56,6 +57,7 @@ export function SettingsPage() {
           <div className="row"><Link className="btn" to={`/s/${centre.slug}/designer`}>Floor designer</Link><Link className="btn" to={`/s/${centre.slug}/prices`}>Prices</Link></div>
         </section>
       )}
+      {owner && <BookingSettings />}
       {owner && <TvSettings />}
 
       <section className="card row" style={{ justifyContent: 'space-between' }}>

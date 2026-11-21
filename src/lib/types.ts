@@ -8,6 +8,7 @@ export type Centre = {
   id: string; name: string; slug: string; phone: string | null; email: string | null; address: string | null; city: string | null;
   timezone: string; currency: string; upi_id: string | null; gstin: string | null; gst_enabled: boolean; gst_rate_bp: number; prices_include_tax: boolean;
   open_time: string; close_time: string; slot_minutes: number; booking_enabled: boolean; booking_note: string | null;
+  booking_advance_bp: number; booking_hold_minutes: number; booking_days_ahead: number; booking_durations: number[]; booking_lead_minutes: number;
   invoice_prefix: string; invoice_seq: number; customer_seq: number; status: string; onboarded_at: string | null; created_at: string;
 };
 export type Subscription = {

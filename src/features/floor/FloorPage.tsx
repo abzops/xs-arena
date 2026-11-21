@@ -1,6 +1,6 @@
 // Live floor: every table, console and track with live timers. Tap one to start, pause, extend, move, bill.
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, CirclePause, CirclePlay, Clock, MoveRight, Plus, Receipt, Square, Users, WifiOff, X } from 'lucide-react';
+import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Square, Users, WifiOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
@@ -17,6 +17,8 @@ import { msgReady, msgStarted, msgTimeUp } from '../../lib/messages';
 import { formatINR } from '../../lib/money';
 import { rpc } from '../../lib/supabase';
 import { BillSheet, useKnownCustomer } from '../billing/BillSheet';
+import { CheckInSheet, SeatSheet } from '../booking/BookingsPage';
+import { durationLabel, type Booking } from '../booking/types';
 import { FloorMap, TONE_FILL } from './FloorMap';
 import { useFloorState } from './useFloor';
 import './floor.css';
@@ -37,6 +39,8 @@ export function FloorPage() {
   const [bill, setBill] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [tabs, setTabs] = useState(false);
+  const [checkIn, setCheckIn] = useState(false);
+  const [seat, setSeat] = useState<Parameters<typeof SeatSheet>[0]['data'] | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
     const on = () => setOnline(true), off = () => setOnline(false);
@@ -82,6 +86,7 @@ export function FloorPage() {
           {count(['over']) > 0 && <span className="pill" style={{ background: 'var(--bad-bg)', color: 'var(--bad)' }}>{count(['over'])} time's up</span>}
         </div>
         <div className="row">
+          <button className="btn small" onClick={() => setCheckIn(true)}><QrCode size={16} /> Check in</button>
           <button className="btn small" onClick={() => setWaiting(true)}><Users size={16} /> Waiting {data.waitlist.length ? `(${data.waitlist.length})` : ''}</button>
           <button className="btn small" onClick={() => setTabs(true)}><Receipt size={16} /> Open bills {data.open_tabs.length ? `(${data.open_tabs.length})` : ''}</button>
           <Segmented label="View" value={view} onChange={setView} options={[{ value: 'map', label: 'Map' }, { value: 'list', label: 'List' }]} />
@@ -90,6 +95,8 @@ export function FloorPage() {
       {floors.length > 1 && view === 'map' && (
         <div className="floor-tabs">{floors.map((f) => <button key={f.id} className="chip" aria-pressed={f.id === floor.id} onClick={() => setFloorId(f.id)}>{f.name}</button>)}</div>
       )}
+
+      <UpcomingBookings bookings={data.bookings ?? []} tz={centre.timezone} now={now} onSeat={setSeat} />
 
       {view === 'map' ? (
         <>
@@ -105,7 +112,8 @@ export function FloorPage() {
             <section key={a.id} className="res-group">
               <h2>{a.name} <span className="muted" style={{ fontWeight: 400, fontSize: 'var(--t-sm)' }}>{priceSummary(a.rate_card)}</span></h2>
               <div className="res-list">
-                {data.resources.filter((r) => r.activity_id === a.id).map((r) => <ResCard key={r.id} r={r} snapshotAt={state.snapshotAt} now={now} onOpen={() => setOpen(r.id)} />)}
+                {data.resources.filter((r) => r.activity_id === a.id).map((r) => <ResCard key={r.id} r={r} snapshotAt={state.snapshotAt} now={now} onOpen={() => setOpen(r.id)}
+                  freeUntil={a.free_until ? formatTime(a.free_until, centre.timezone) : null} />)}
               </div>
             </section>
           ))}
@@ -127,7 +135,35 @@ export function FloorPage() {
         onClose={() => setOpen(null)} onBill={(tab) => { setOpen(null); setBill(tab); }} />}
       {bill && <BillSheet tabId={bill} onClose={() => setBill(null)} />}
       {waiting && <WaitlistSheet data={data} onClose={() => setWaiting(false)} />}
+      {checkIn && <CheckInSheet onClose={() => setCheckIn(false)} onFound={(c) => { setCheckIn(false); setSeat(c); }} />}
+      {seat && <SeatSheet data={seat} onClose={() => setSeat(null)} />}
       {tabs && <OpenTabsSheet data={data} onClose={() => setTabs(false)} onOpen={(t) => { setTabs(false); setBill(t); }} />}
+    </div>
+  );
+}
+
+/** Arrived, late and soon-due bookings, so the desk can seat them in one tap. */
+function UpcomingBookings({ bookings, tz, now, onSeat }: { bookings: Booking[]; tz: string; now: number; onSeat: (c: Parameters<typeof SeatSheet>[0]['data']) => void }) {
+  const { centre } = useCentre();
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  const soon = bookings.filter((b) => b.status === 'arrived' || b.status === 'late' || new Date(b.starts_at).getTime() - now < 60 * 60_000);
+  if (!soon.length) return null;
+  const open = async (b: Booking) => {
+    setBusy(b.id);
+    try { onSeat(await rpc('check_in_booking', { p_centre: centre.id, p_code_or_token: b.code })); }
+    catch (e) { toast(errorMessage(e)); } finally { setBusy(null); }
+  };
+  return (
+    <div className="upcoming" role="region" aria-label="Bookings due">
+      <span className="upcoming-label"><CalendarCheck size={16} /> Bookings</span>
+      {soon.map((b) => (
+        <button key={b.id} className={`upcoming-card st-${b.status}`} disabled={busy === b.id} onClick={() => open(b)}>
+          <b>{formatTime(b.starts_at, tz)} · {b.name}</b>
+          <span>{b.activity} · {durationLabel(b.minutes)} · {b.party_size} pl</span>
+          <span className="upcoming-cta">{b.status === 'arrived' ? 'Arrived — seat' : b.status === 'late' ? 'Late — check in' : 'Check in'}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -137,7 +173,7 @@ function Legend() {
   return <div className="floor-legend">{items.map(([t, l]) => <span key={t}><i style={{ background: TONE_FILL[t] }} />{l}</span>)}</div>;
 }
 
-function ResCard({ r, snapshotAt, now, onOpen }: { r: Resource; snapshotAt: number; now: number; onOpen: () => void }) {
+function ResCard({ r, snapshotAt, now, onOpen, freeUntil }: { r: Resource; snapshotAt: number; now: number; onOpen: () => void; freeUntil?: string | null }) {
   const s = r.session;
   const played = s ? playedSeconds(s, snapshotAt, now) : 0;
   const tone = toneOf(r, played);
@@ -146,7 +182,7 @@ function ResCard({ r, snapshotAt, now, onOpen }: { r: Resource; snapshotAt: numb
       <span className="rc-top"><span>{r.name}</span><span>{TONE_LABEL[tone]}</span></span>
       <span className="rc-timer">{tone === 'off' ? '—' : s ? timerText(s, played) : 'Free'}</span>
       <span className="rc-sub">
-        <span>{s ? [s.customer?.name?.split(' ')[0], `${s.players} pl`].filter(Boolean).join(' · ') : `Up to ${r.capacity} players`}</span>
+        <span>{s ? [s.customer?.name?.split(' ')[0], `${s.players} pl`].filter(Boolean).join(' · ') : freeUntil ? `Free until ${freeUntil}` : `Up to ${r.capacity} players`}</span>
         <span className="num">{s?.cost_paise != null ? formatINR(s.cost_paise) : ''}</span>
       </span>
     </button>
@@ -212,6 +248,7 @@ export function AlertSettings() {
 }
 
 /* ────────────────────────── One table / console / track ────────────────────────── */
+type ExtCheck = { ok: boolean; max_minutes: number; booked_at: string | null; alternatives: { activity_id: string; name: string; free: number }[] };
 function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
   r: Resource; a: Activity | undefined; data: FloorState; snapshotAt: number; onClose: () => void; onBill: (tab: string) => void;
 }) {
@@ -221,6 +258,7 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
   const now = useNow();
   const [voiding, setVoiding] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [blocked, setBlocked] = useState<ExtCheck | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: ['floor', centre.id] });
   const run = useMutation({
     mutationFn: async (x: { fn: string; args: Record<string, unknown>; ok?: string }) => { const r = await command(x.fn, { p_centre: centre.id, ...x.args }); return { r, ok: x.ok }; },
@@ -248,6 +286,15 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
   const endsAt = s.planned_minutes ? new Date(now + (left ?? 0) * 1000).toISOString() : null;
   const freeSame = data.resources.filter((x) => x.activity_id === r.activity_id && x.id !== r.id && !x.session && x.status === 'active');
   const go = (fn: string, args: Record<string, unknown>, ok?: string) => run.mutate({ fn, args: { p_session: s.id, ...args }, ok });
+  // Smart extension: check bookings first; offline (check fails) the server re-checks when the command syncs.
+  const extend = async (m: number) => {
+    setBlocked(null);
+    try {
+      const c = await rpc<ExtCheck>('extension_check', { p_centre: centre.id, p_session: s.id, p_minutes: m });
+      if (!c.ok) { setBlocked(c); return; }
+    } catch { /* offline: let the queued command decide */ }
+    go('extend_session', { p_minutes: m }, `Added ${minutesLabel(m)}`);
+  };
 
   return (
     <Sheet title={title} onClose={onClose}>
@@ -292,10 +339,21 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
         <div className="field"><span>Add time</span>
           <div className="chips">
             {(rc?.billing_mode === 'per_slot' ? [rc.slot_minutes, rc.slot_minutes * 2] : [15, 30, 60]).map((m) => (
-              <button key={m} className="chip" disabled={run.isPending} onClick={() => go('extend_session', { p_minutes: m }, `Added ${minutesLabel(m)}`)}>+{minutesLabel(m)}</button>
+              <button key={m} className="chip" disabled={run.isPending} onClick={() => extend(m)}>+{minutesLabel(m)}</button>
             ))}
           </div>
         </div>
+        {blocked && (
+          <Notice tone="warn">
+            <b>{a?.name ?? 'This game'} is booked{blocked.booked_at ? ` from ${formatTime(blocked.booked_at, centre.timezone)}` : ''}.</b>{' '}
+            {blocked.max_minutes > 0 ? `You can add up to ${minutesLabel(blocked.max_minutes)}.` : 'No more time can be added on this game.'}
+            {blocked.alternatives.length > 0 && ` Free now: ${blocked.alternatives.map((x) => `${x.name} (${x.free})`).join(', ')}.`}
+            {blocked.max_minutes > 0 && (
+              <div style={{ marginTop: 8 }}><button className="btn small" onClick={() => { go('extend_session', { p_minutes: blocked.max_minutes }, `Added ${minutesLabel(blocked.max_minutes)}`); setBlocked(null); }}>
+                Add {minutesLabel(blocked.max_minutes)}</button></div>
+            )}
+          </Notice>
+        )}
 
         <div className="grid-2">
           {s.status === 'running'
@@ -357,6 +415,9 @@ function StartSheet({ r, a, data, onClose, fromWait }: { r: Resource; a: Activit
     <Sheet title={`Start ${r.name}`} onClose={onClose}>
       <form className="stack lg" onSubmit={(e) => { e.preventDefault(); start.mutate(); }}>
         <p className="muted" style={{ margin: 0 }}>{a?.name} · {priceSummary(rc)}</p>
+        {a?.free_until && (
+          <Notice tone="warn">{a.name} is booked from {formatTime(a.free_until, centre.timezone)} — tell walk-ins they can play until then.</Notice>
+        )}
         {waiters.length > 0 && !fromWait && (
           <div className="field"><span>From the waiting list</span>
             <div className="chips">{waiters.map((w) => (

@@ -10,7 +10,7 @@ export type RateCard = {
   included_players: number; extra_player_paise: number; time_rules: TimeRule[]; addons: { code: string; name: string; price_paise: number }[];
   active: boolean;
 };
-export type Activity = { id: string; name: string; kind: 'table' | 'console' | 'track' | 'other'; icon: string; color: string; active: boolean; rate_card: RateCard | null };
+export type Activity = { id: string; name: string; kind: 'table' | 'console' | 'track' | 'other'; icon: string; color: string; active: boolean; rate_card: RateCard | null; free_until?: string | null };
 export type Fixture = { id: string; type: FixtureType; label: string; x: number; y: number; w: number; h: number; rotation: number };
 export type FixtureType = 'counter' | 'entrance' | 'cafe' | 'toilet' | 'wall' | 'tv' | 'other';
 export type Floor = { id: string; name: string; width: number; height: number; outline: [number, number][]; fixtures: Fixture[]; version: number };
@@ -28,6 +28,7 @@ export type WaitEntry = { id: string; activity_id: string; name: string; phone: 
 export type OpenTab = { id: string; label: string | null; opened_at: string; customer: string | null; live: boolean };
 export type FloorState = {
   server_time: string; floors: Floor[]; activities: Activity[]; resources: Resource[]; waitlist: WaitEntry[]; open_tabs: OpenTab[];
+  bookings?: import('../features/booking/types').Booking[];
 };
 
 export const MODE_LABEL: Record<BillingMode, string> = {

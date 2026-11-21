@@ -1,5 +1,5 @@
 import {
-  Banknote, Home, IndianRupee, LayoutGrid, LogOut, Menu, Package, PencilRuler, Receipt, Settings, Users, UsersRound, Wallet,
+  Banknote, Home, IndianRupee, LayoutGrid, LogOut, Menu, Package, PencilRuler, Receipt, Settings, Users, UsersRound, CalendarCheck, Wallet,
 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ComponentType } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
@@ -16,6 +16,7 @@ type NavItem = { to: string; label: string; icon: ComponentType<{ size?: number;
 const NAV: NavItem[] = [
   { to: '', label: 'Home', icon: Home },
   { to: 'floor', label: 'Floor', icon: LayoutGrid, perm: 'floor.operate' },
+  { to: 'bookings', label: 'Bookings', icon: CalendarCheck, perm: 'floor.operate' },
   { to: 'bills', label: 'Bills', icon: Receipt, perm: 'billing.create' },
   { to: 'customers', label: 'Customers', icon: Users },
   { to: 'shift', label: 'Shift & cash', icon: Banknote, perm: 'floor.operate' },

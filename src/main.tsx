@@ -20,6 +20,9 @@ import { Dashboard } from './features/dashboard/Dashboard';
 import { LandingPage } from './features/landing/LandingPage';
 import { errorMessage } from './lib/errors';
 
+const BookPage = lazy(() => import('./features/booking/BookPage').then((m) => ({ default: m.BookPage })));
+const TicketPage = lazy(() => import('./features/booking/TicketPage').then((m) => ({ default: m.TicketPage })));
+const BookingsPage = lazy(() => import('./features/booking/BookingsPage').then((m) => ({ default: m.BookingsPage })));
 const DesignerPage = lazy(() => import('./features/floor/DesignerPage').then((m) => ({ default: m.DesignerPage })));
 const PricesPage = lazy(() => import('./features/prices/PricesPage').then((m) => ({ default: m.PricesPage })));
 const BillsPage = lazy(() => import('./features/billing/BillsPage').then((m) => ({ default: m.BillsPage })));
@@ -112,11 +115,14 @@ const router = createBrowserRouter(
       <Route path="/" element={<Root />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/tv" element={<Suspense fallback={<Splash />}><TvPage /></Suspense>} />
+      <Route path="/b/:slug" element={<Suspense fallback={<Splash />}><BookPage /></Suspense>} />
+      <Route path="/t/:token" element={<Suspense fallback={<Splash />}><TicketPage /></Suspense>} />
       <Route element={<RequireAuth />}>
         <Route path="/setup" element={<SetupCentre />} />
         <Route path="/s/:slug" element={<CentreLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="floor" element={<Allow perm="floor.operate"><FloorPage /></Allow>} />
+          <Route path="bookings" element={<Allow perm="floor.operate"><BookingsPage /></Allow>} />
           <Route path="designer" element={<Allow perm="floor.design"><DesignerPage /></Allow>} />
           <Route path="prices" element={<Allow><PricesPage /></Allow>} />
           <Route path="bills" element={<Allow perm="billing.create"><BillsPage /></Allow>} />

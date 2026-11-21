@@ -22,7 +22,7 @@ export function useFloorState() {
   useEffect(() => {
     const refresh = () => void qc.invalidateQueries({ queryKey: ['floor', centre.id] });
     const ch = supabase.channel(`floor-${centre.id}`);
-    for (const table of ['sessions', 'waitlist', 'resources', 'tabs']) {
+    for (const table of ['sessions', 'waitlist', 'resources', 'tabs', 'bookings']) {
       ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `centre_id=eq.${centre.id}` }, refresh);
     }
     ch.subscribe();
