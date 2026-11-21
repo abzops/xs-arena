@@ -17,7 +17,7 @@ Plan: Xelorsoft project doc `claude/xs-arena-implementation-plan.md` (go-live Sa
 - Cloudflare: create Worker `xs-arena` from `worker/index.js`, route `arena.xelorsoft.com/*`, DNS record. (Worker reads the public `deploy` branch, so the repo must stay public unless hosting changes.)
 - Supabase Auth → URL configuration: Site URL `https://arena.xelorsoft.com`, redirect `https://arena.xelorsoft.com/**`.
 - Paste branded templates from `supabase/templates/`; custom SMTP (Resend) shared with XS Salon.
-- Worker sends `permissions-policy: camera=()` — must allow camera before QR check-in (Phase 2).
+- ~~Worker camera policy~~ → `camera=(self)` deployed 21 Nov for QR check-in.
 
 ## Day 2 · Sat 21 Nov — Floor, prices, timers (database) ✅
 
@@ -46,6 +46,14 @@ Plan: Xelorsoft project doc `claude/xs-arena-implementation-plan.md` (go-live Sa
 - Receipt: in-time / out-time per game, print (80 mm), WhatsApp receipt English / Malayalam with UPI pay link for dues, collect dues, void.
 - Bills list (by day, dues), Shift & cash (open, live figures, close with count, history), Games & prices (all rules, special prices, add a game), TV display `/tv` (pairing code, live floor, free now, finishing soon, waiting list, keeps screen awake), Settings → TV screens + device alerts + floor/prices links, dashboard with real sales, customer visit history.
 - Browser end-to-end check (laptop + phone + TV) passes with no console errors.
+
+## Phase 2 · Sat 21 Nov — Booking, check-in, smart extensions, loyalty ✅
+
+- `0011_bookings.sql`: **bookings** (book a game type + time, table chosen at check-in), one **availability engine** (`_activity_load` / `_can_fit`: live games + held bookings + 1 must fit at every moment; online bookings also must fit in online tables − walk-in reserve), public `booking_page` / `booking_slots` / `create_booking` / `booking_ticket` / `cancel_booking_by_token` (only these + TV are callable signed out — enforced by a test), staff `bookings_for_day` / `staff_create_booking` / `check_in_booking` (code, token or scanned ticket URL) / `seat_booking` / `set_booking_status`, **smart extensions** (`extension_check`; `extend_session` refuses to eat into a booking and says how much fits + which games are free), `floor_state` adds bookings + **free until** per game, booking settings (on/off, lengths, hold time, days ahead, notice, advance %, per-game online + walk-in reserve).
+- `0012_loyalty.sql` + `0013`: **loyalty points** — owner-editable rules (points per ₹100, point value, use-from, max % of bill, welcome + birthday bonus, expiry, per-game multipliers, happy hours, snacks on/off); append-only ledger; earn on bill close (on what was actually paid); front desk can apply points at checkout (`close_tab(p_points)`); void gives back / takes back; expiry oldest-first; manual adjust with reason; suggested points are worth whole rupees.
+- Screens: public **/b/:slug** (live floor, game → day → length/players → time → name + phone → ticket), **/t/:token** ticket (QR, code, hold time, share, directions, cancel ≥1 h before), staff **Bookings** (day list, check in by code or camera QR, seat at a suggested free table, phone bookings with WhatsApp ticket, no-show / cancel), floor **Check in** + due-bookings strip + "Free until 7:30", extension warning with "Add 35m", **Settings → Online booking** (link, QR poster) and **Loyalty points**, bill sheet points box, receipt + WhatsApp points lines, customer points card + adjust.
+- Tests `0004_bookings.test.sql`, `0005_loyalty.test.sql`; E2E: customer booking, staff phone bookings + 4th refused, check-in → seat from floor, smart extension, loyalty earn/use/receipt; /verify 8/8; 42 page loads clean.
+- Payments for the advance wait for Razorpay keys: until then customers pay at the centre.
 
 ## Next
 - Pilot centre setup (their floor, prices, staff, UPI ID).

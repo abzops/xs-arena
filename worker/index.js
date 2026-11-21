@@ -9,7 +9,7 @@ const TYPES = {
 };
 const SEC = {
   'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'x-frame-options': 'DENY',
-  'permissions-policy': 'camera=(), microphone=(), geolocation=()', 'strict-transport-security': 'max-age=31536000; includeSubDomains',
+  'permissions-policy': 'camera=(self), microphone=(), geolocation=()', 'strict-transport-security': 'max-age=31536000; includeSubDomains',
 };
 
 async function fromOrigin(path, ttl) {
@@ -22,7 +22,7 @@ export default {
     if (req.method !== 'GET' && req.method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
     const { pathname } = new URL(req.url);
     if (pathname === '/healthz') return new Response('ok');
-    if (pathname === '/robots.txt') return new Response('User-agent: *\nAllow: /book/\nDisallow: /\n', { headers: { 'content-type': TYPES.txt } });
+    if (pathname === '/robots.txt') return new Response('User-agent: *\nAllow: /b/\nDisallow: /\n', { headers: { 'content-type': TYPES.txt } });
     const ext = (pathname.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase();
     if (ext && TYPES[ext]) {
       if (!/^\/(assets|brand)\/[\w.@-]+$|^\/(theme\.js|manifest\.webmanifest)$/.test(pathname)) return new Response('Not found', { status: 404 });
