@@ -1,6 +1,6 @@
 // Live floor: every table, console and track with live timers. Tap one to start, pause, extend, move, bill.
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Sparkles, Square, Users, WifiOff, X } from 'lucide-react';
+import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Smartphone, Sparkles, Square, Users, WifiOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
@@ -15,6 +15,7 @@ import {
 } from '../../lib/floor';
 import { msgReady, msgStarted, msgTimeUp } from '../../lib/messages';
 import { formatINR } from '../../lib/money';
+import { currentPush, disablePush, enablePush, pushSupported } from '../../lib/push';
 import { rpc } from '../../lib/supabase';
 import { BillSheet, useKnownCustomer } from '../billing/BillSheet';
 import { AiSheet } from '../ai/AiSheet';
@@ -275,11 +276,40 @@ export function AlertSettings() {
       <label className="check-row" style={{ padding: 0 }}><input type="checkbox" checked={sound}
         onChange={(e) => { setSound(e.target.checked); try { localStorage.setItem(SOUND_KEY, e.target.checked ? '1' : '0'); } catch { /* ignore */ } if (e.target.checked) beep(1); }} />
         <span className="grow">{sound ? <Bell size={16} /> : <BellOff size={16} />} Beep on this device when time is almost up</span></label>
-      {'Notification' in window && perm !== 'granted' && (
+      {pushSupported() ? <PhoneAlerts onPerm={setPerm} /> : 'Notification' in window && perm !== 'granted' && (
         <button className="btn small" style={{ justifySelf: 'start' }} disabled={perm === 'denied'}
           onClick={() => Notification.requestPermission().then(setPerm)}>{perm === 'denied' ? 'Notifications blocked in browser settings' : 'Allow phone notifications'}</button>
       )}
     </div>
+  );
+}
+
+/** Web push: alerts reach this phone even when the app is closed. */
+function PhoneAlerts({ onPerm }: { onPerm: (p: NotificationPermission) => void }) {
+  const { centre, can } = useCentre();
+  const toast = useToast();
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { currentPush().then((s) => setOn(!!s)).catch(() => setOn(false)); }, []);
+  if (!can('floor.operate')) return null;
+  const blocked = Notification.permission === 'denied';
+  const toggle = async (want: boolean) => {
+    setBusy(true);
+    try {
+      if (want) {
+        const ok = await enablePush(centre.id);
+        onPerm(Notification.permission);
+        setOn(ok);
+        toast(ok ? 'Phone alerts on for this device' : 'Notifications were not allowed');
+      } else { await disablePush(); setOn(false); toast('Phone alerts off for this device'); }
+    } catch { toast('Could not change phone alerts. Try again.'); }
+    finally { setBusy(false); }
+  };
+  return (
+    <label className="check-row" style={{ padding: 0 }}>
+      <input type="checkbox" checked={!!on} disabled={busy || on === null || (blocked && !on)} onChange={(e) => toggle(e.target.checked)} />
+      <span className="grow"><Smartphone size={16} /> {blocked && !on ? 'Phone alerts blocked in browser settings' : 'Phone alerts — 5 min left and time\'s up, even when the app is closed'}</span>
+    </label>
   );
 }
 

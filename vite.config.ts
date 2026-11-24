@@ -18,6 +18,7 @@ function csp(supabaseUrl: string): Plugin {
     "font-src 'self'",
     `connect-src 'self' ${api.origin} wss://${api.host} https://cloudflareinsights.com`,
     "manifest-src 'self'",
+    "worker-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
