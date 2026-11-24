@@ -8,13 +8,14 @@ import { formatDateTime } from '../../lib/dates';
 import { errorMessage } from '../../lib/errors';
 import { formatINR } from '../../lib/money';
 import { rpc, supabase } from '../../lib/supabase';
-import { usePoints } from '../billing/BillSheet';
+import { usePoints, type Reward, type Tier } from '../billing/BillSheet';
 
 type HappyHour = { label: string; days: number[]; start: string; end: string; multiplier: number };
 type Settings = {
   enabled: boolean; available: boolean; earn_points_per_100: number; earn_on_snacks: boolean; point_value_paise: number; min_redeem_points: number;
   max_redeem_pct: number; welcome_points: number; birthday_points: number; expiry_months: number | null;
   multipliers: Record<string, number>; happy_hours: HappyHour[];
+  rewards: Reward[]; tiers: Tier[];
 };
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const KIND: Record<string, string> = { earn: 'Earned', redeem: 'Used', welcome: 'Welcome bonus', birthday: 'Birthday bonus', adjust: 'Adjusted', expire: 'Expired', reverse: 'Bill voided' };
@@ -110,6 +111,39 @@ export function LoyaltySettings() {
           onClick={() => setF({ ...f, happy_hours: [...f.happy_hours, { label: 'Happy hour', days: [1, 2, 3, 4], start: '14:00', end: '17:00', multiplier: 2 }] })}>
           <Plus size={16} /> Add happy hour</button>
       </div>
+      <div className="field"><span>Rewards</span><span className="hint">Fixed rewards the counter can give for points, e.g. "30 min snooker free". Taken off the bill at checkout.</span>
+        {(f.rewards ?? []).map((r, i) => (
+          <div key={r.id || i} className="row reward-row">
+            <input className="input grow" value={r.name} placeholder="Reward name" aria-label="Reward name"
+              onChange={(e) => setF({ ...f, rewards: f.rewards.map((x, j) => j === i ? { ...x, name: e.target.value } : x) })} />
+            <label className="row" style={{ gap: 4 }}><input className="input num" style={{ width: 80 }} inputMode="numeric" value={r.points || ''} aria-label="Points needed"
+              onChange={(e) => setF({ ...f, rewards: f.rewards.map((x, j) => j === i ? { ...x, points: Number(e.target.value.replace(/\D/g, '')) || 0 } : x) })} /> pts</label>
+            <label className="row" style={{ gap: 4 }}>₹<input className="input num" style={{ width: 80 }} inputMode="numeric" value={r.value_paise ? r.value_paise / 100 : ''} aria-label="Worth in rupees"
+              onChange={(e) => setF({ ...f, rewards: f.rewards.map((x, j) => j === i ? { ...x, value_paise: (Number(e.target.value.replace(/\D/g, '')) || 0) * 100 } : x) })} /></label>
+            <button type="button" className="btn small ghost icon-btn" aria-label="Remove reward" onClick={() => setF({ ...f, rewards: f.rewards.filter((_, j) => j !== i) })}><Trash2 size={16} /></button>
+          </div>
+        ))}
+        <button type="button" className="btn small" style={{ justifySelf: 'start' }}
+          onClick={() => setF({ ...f, rewards: [...(f.rewards ?? []), { id: '', name: '30 min free game', points: 300, value_paise: 10000 }] })}><Plus size={16} /> Add reward</button>
+      </div>
+
+      <div className="field"><span>Tiers</span><span className="hint">Regulars earn more. Based on points earned from bills (bonuses don't count).</span>
+        {(f.tiers ?? []).map((t, i) => (
+          <div key={i} className="row reward-row">
+            <input className="input grow" value={t.name} placeholder="Tier name" aria-label="Tier name"
+              onChange={(e) => setF({ ...f, tiers: f.tiers.map((x, j) => j === i ? { ...x, name: e.target.value } : x) })} />
+            <label className="row" style={{ gap: 4 }}>from<input className="input num" style={{ width: 80 }} inputMode="numeric" value={t.min_points} aria-label="From points"
+              onChange={(e) => setF({ ...f, tiers: f.tiers.map((x, j) => j === i ? { ...x, min_points: Number(e.target.value.replace(/\D/g, '')) || 0 } : x) })} /> pts</label>
+            <select className="input" style={{ width: 'auto' }} value={t.multiplier} aria-label="Extra earning"
+              onChange={(e) => setF({ ...f, tiers: f.tiers.map((x, j) => j === i ? { ...x, multiplier: Number(e.target.value) } : x) })}>
+              {[1.25, 1.5, 2, 3].map((m) => <option key={m} value={m}>{m}× points</option>)}</select>
+            <button type="button" className="btn small ghost icon-btn" aria-label="Remove tier" onClick={() => setF({ ...f, tiers: f.tiers.filter((_, j) => j !== i) })}><Trash2 size={16} /></button>
+          </div>
+        ))}
+        <button type="button" className="btn small" style={{ justifySelf: 'start' }}
+          onClick={() => setF({ ...f, tiers: [...(f.tiers ?? []), (f.tiers ?? []).length ? { name: 'Gold', min_points: 2000, multiplier: 1.5 } : { name: 'Silver', min_points: 500, multiplier: 1.25 }] })}><Plus size={16} /> Add tier</button>
+      </div>
+
       {save.error && <Notice tone="bad">{errorMessage(save.error)}</Notice>}
       <button className="btn primary" style={{ justifySelf: 'start' }} disabled={save.isPending} onClick={() => save.mutate()}>Save loyalty settings</button>
     </section>
@@ -128,6 +162,10 @@ export function CustomerPointsCard({ customerId }: { customerId: string }) {
         <h2><Star size={18} style={{ verticalAlign: -2 }} /> {pts.balance} points</h2>
         {can('loyalty.manage') && <button className="btn small" onClick={() => setAdjust(true)}>Adjust</button>}
       </div>
+      {(pts.tier || pts.next_tier) && (
+        <p style={{ fontSize: 'var(--t-sm)' }}>{pts.tier && <span className="tier-badge" style={{ marginLeft: 0, marginRight: 8 }}>{pts.tier.name} · {pts.tier.multiplier}× points</span>}
+          {pts.next_tier && <span className="muted">{pts.next_tier.min_points - (pts.lifetime ?? 0)} more points to {pts.next_tier.name}</span>}</p>
+      )}
       <p className="muted" style={{ fontSize: 'var(--t-sm)' }}>Worth {formatINR(pts.value_paise)}{pts.next_expiry ? ` · some expire ${new Date(pts.next_expiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}</p>
       {pts.history.length > 0 && (
         <ul className="list flush">{pts.history.slice(0, 10).map((h, i) => (

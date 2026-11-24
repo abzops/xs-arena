@@ -568,3 +568,7 @@ body:has(.overlay) .toasts { top: calc(12px + env(safe-area-inset-top)); bottom:
 .bill-thumb img { max-height: 160px; border-radius: var(--r); display: block; }
 .bill-thumb .btn { position: absolute; top: 4px; right: 4px; background: var(--paper); }
 .bill-photo { width: 100%; height: auto; border-radius: var(--r); }
+
+/* Loyalty: tier badge, reward/tier editor rows */
+.tier-badge { margin-left: 8px; font-size: var(--t-xs); font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--paper); }
+.reward-row { gap: 8px; flex-wrap: wrap; padding: 8px; border-radius: var(--r); background: var(--paper-2); }
