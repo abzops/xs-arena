@@ -123,3 +123,4 @@
 .upcoming-card.st-arrived .upcoming-cta { color: var(--info); }
 .upcoming-card.st-late .upcoming-cta { color: var(--warn); }
 .points-box { display: grid; gap: 6px; background: var(--ok-bg); border-radius: var(--r); padding: 10px 12px; }
+.extend-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }

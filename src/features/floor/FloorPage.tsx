@@ -124,7 +124,8 @@ export function FloorPage() {
         <div className="alert-stack" role="status">
           {alerts.slice(0, 3).map((a) => (
             <div key={a.key} className={`notice ${a.tone}`} style={{ cursor: 'pointer' }} onClick={() => { setOpen(a.resourceId); a.dismiss(); }}>
-              <Clock size={18} /><div><b>{a.title}</b><br /><span className="muted">{a.body}</span></div>
+              <Clock size={18} /><div><b>{a.title}</b><br /><span className="muted">{a.body}</span>
+                {a.extend && <ExtendButtons sessionId={a.sessionId} onDone={a.dismiss} onBlocked={() => setOpen(a.resourceId)} />}</div>
               <button className="btn small ghost icon-btn" aria-label="Dismiss" onClick={(e) => { e.stopPropagation(); a.dismiss(); }}><X size={14} /></button>
             </div>
           ))}
@@ -189,19 +190,49 @@ function ResCard({ r, snapshotAt, now, onOpen, freeUntil }: { r: Resource; snaps
   );
 }
 
-/** 5-minute and time's-up alerts for fixed-time games, with an optional beep and phone notification. */
+/** One-tap extension from an alert. Checks bookings first; if time is booked, opens the table to show the options. */
+function ExtendButtons({ sessionId, onDone, onBlocked }: { sessionId: string; onDone: () => void; onBlocked: () => void }) {
+  const { centre } = useCentre();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const go = async (m: number) => {
+    setBusy(true);
+    try {
+      try {
+        const c = await rpc<{ ok: boolean; max_minutes: number; booked_at: string | null }>('extension_check', { p_centre: centre.id, p_session: sessionId, p_minutes: m });
+        if (!c.ok) {
+          toast(c.max_minutes > 0 ? `Booked${c.booked_at ? ` from ${formatTime(c.booked_at, centre.timezone)}` : ''} — up to ${c.max_minutes} min fits` : 'Booked next — no more time on this table');
+          onBlocked(); return;
+        }
+      } catch { /* offline: the server re-checks when the command syncs */ }
+      await command('extend_session', { p_centre: centre.id, p_session: sessionId, p_minutes: m });
+      await qc.invalidateQueries({ queryKey: ['floor', centre.id] });
+      toast(`Added ${m >= 60 ? `${m / 60}h` : `${m}m`}`); onDone();
+    } catch (e) { toast(errorMessage(e)); } finally { setBusy(false); }
+  };
+  return (
+    <span className="extend-row" onClick={(e) => e.stopPropagation()}>
+      {[15, 30, 60].map((m) => <button key={m} className="chip" disabled={busy} onClick={() => go(m)}>+{m >= 60 ? '1h' : `${m}m`}</button>)}
+    </span>
+  );
+}
+
+/** 15-minute "extend?" prompt, 5-minute and time's-up alerts for fixed-time games, with an optional beep and phone notification. */
 function useAlerts(data: FloorState | undefined, snapshotAt: number, now: number) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const fired = useRef<Set<string>>(new Set());
   const list = useMemo(() => {
     if (!data) return [];
-    const out: { key: string; resourceId: string; tone: 'warn' | 'bad'; title: string; body: string }[] = [];
+    const out: { key: string; resourceId: string; sessionId: string; tone: 'warn' | 'bad' | 'info'; title: string; body: string; extend?: boolean }[] = [];
     for (const r of data.resources) {
       const s = r.session;
       if (!s?.planned_minutes || s.status !== 'running') continue;
       const left = s.planned_minutes * 60 - playedSeconds(s, snapshotAt, now);
-      if (left <= 0) out.push({ key: `${s.id}:over:${s.planned_minutes}`, resourceId: r.id, tone: 'bad', title: `${r.name}: time's up`, body: `${clock(-left)} over${s.customer ? ` · ${s.customer.name}` : ''}` });
-      else if (left <= 300) out.push({ key: `${s.id}:soon:${s.planned_minutes}`, resourceId: r.id, tone: 'warn', title: `${r.name}: ${Math.ceil(left / 60)} min left`, body: s.customer?.name ?? 'Walk-in' });
+      if (left <= 0) out.push({ key: `${s.id}:over:${s.planned_minutes}`, resourceId: r.id, sessionId: s.id, tone: 'bad', title: `${r.name}: time's up`, body: `${clock(-left)} over${s.customer ? ` · ${s.customer.name}` : ''}` });
+      else if (left <= 300) out.push({ key: `${s.id}:soon:${s.planned_minutes}`, resourceId: r.id, sessionId: s.id, tone: 'warn', title: `${r.name}: ${Math.ceil(left / 60)} min left`, body: s.customer?.name ?? 'Walk-in', extend: true });
+      // 15 minutes before the end: ask the players if they want more time (quiet: no beep)
+      else if (left <= 900 && s.planned_minutes > 20) out.push({ key: `${s.id}:extend:${s.planned_minutes}`, resourceId: r.id, sessionId: s.id, tone: 'info', title: `${r.name}: ${Math.ceil(left / 60)} min left — extend?`, body: s.customer?.name ?? 'Walk-in', extend: true });
     }
     return out;
   }, [data, snapshotAt, now]);
@@ -209,6 +240,7 @@ function useAlerts(data: FloorState | undefined, snapshotAt: number, now: number
     for (const a of list) {
       if (fired.current.has(a.key)) continue;
       fired.current.add(a.key);
+      if (a.tone === 'info') continue;
       if (localStorage.getItem(SOUND_KEY) === '1') beep(a.tone === 'bad' ? 2 : 1);
       if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
         try { new Notification(a.title, { body: a.body, tag: a.key }); } catch { /* not allowed here */ }
