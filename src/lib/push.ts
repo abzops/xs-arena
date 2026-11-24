@@ -13,6 +13,18 @@ async function registration() {
   return (await navigator.serviceWorker.getRegistration(SCOPE)) ?? navigator.serviceWorker.register(SW, { scope: SCOPE });
 }
 
+/** Wait until this registration's worker is active. (navigator.serviceWorker.ready never resolves here:
+ *  the worker's scope is /assets/, so it never controls the app's pages.) */
+function activated(reg: ServiceWorkerRegistration, ms = 15000): Promise<void> {
+  if (reg.active) return Promise.resolve();
+  const w = reg.installing ?? reg.waiting;
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('Phone alerts could not start. Reload and try again.')), ms);
+    w?.addEventListener('statechange', () => { if (w.state === 'activated') { clearTimeout(t); resolve(); } });
+    if (!w) { clearTimeout(t); reject(new Error('Phone alerts could not start. Reload and try again.')); }
+  });
+}
+
 export async function currentPush(): Promise<PushSubscription | null> {
   if (!pushSupported()) return null;
   const reg = await navigator.serviceWorker.getRegistration(SCOPE);
@@ -27,7 +39,7 @@ export async function enablePush(centreId: string): Promise<boolean> {
   if (keyErr) throw keyErr;
   if (!key) throw new Error('Phone alerts are not ready yet. Try again in a minute.');
   const reg = await registration();
-  await navigator.serviceWorker.ready;
+  await activated(reg);
   const sub = (await reg.pushManager.getSubscription())
     ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key as string) as BufferSource });
   const j = sub.toJSON();
