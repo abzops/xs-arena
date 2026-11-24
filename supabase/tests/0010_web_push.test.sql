@@ -67,4 +67,16 @@ begin
   perform pg_temp.eq('dropped', (select count(*) from push_subscriptions where centre_id = c), 0::bigint);
 end $$;
 
+-- VAPID keys: signed-in staff read the public key only; the private key is hidden from everyone but the service role
+insert into push_vapid(public_key, private_key) values ('PUBKEY', 'SECRET');
+do $$ begin
+  perform pg_temp.as_user('00000000-0000-0000-0000-0000000000ac');
+  perform pg_temp.eq('public key', push_public_key(), 'PUBKEY');
+  perform pg_temp.expect_error('select private_key from push_vapid', 'permission denied');
+  perform pg_temp.reset();
+  perform pg_temp.as_user(null);
+  perform pg_temp.eq('no key when signed out', push_public_key(), null::text);
+  perform pg_temp.reset();
+end $$;
+
 select 'web push ok';

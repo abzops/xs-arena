@@ -101,14 +101,30 @@ do $$ begin
   end if;
 end $$;
 
+-- VAPID keys: made once by the push-alerts function, kept here; nobody but the service role can read the private key.
+create table if not exists public.push_vapid (
+  id int primary key default 1 check (id = 1),
+  public_key text not null,
+  private_key text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.push_vapid enable row level security;
+revoke all on public.push_vapid from public, anon, authenticated;
+
+create or replace function public.push_public_key()
+returns text language sql stable security definer set search_path = public as $$
+  select public_key from push_vapid where id = 1 and auth.uid() is not null;
+$$;
+
 revoke execute on all functions in schema public from public, anon;
 revoke execute on function public._due_push_alerts(), public._drop_push_endpoint(text), public.has_role_perm(text,text) from authenticated;
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant select, insert on public.push_vapid to service_role;
     grant execute on function public._due_push_alerts(), public._drop_push_endpoint(text) to service_role;
   end if;
 end $$;
 grant execute on function public.tv_begin(), public.tv_poll(text), public.booking_page(text), public.booking_slots(text,uuid,date,int,int),
   public.create_booking(text,uuid,timestamptz,int,int,text,text,text), public.booking_ticket(text), public.cancel_booking_by_token(text)
   to anon, authenticated;
-grant execute on function public.save_push_subscription(uuid,text,text,text,text), public.delete_push_subscription(text) to authenticated;
+grant execute on function public.save_push_subscription(uuid,text,text,text,text), public.delete_push_subscription(text), public.push_public_key() to authenticated;

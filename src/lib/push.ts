@@ -2,12 +2,11 @@
 import { keyBytes } from './b64';
 import { supabase } from './supabase';
 
-const KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 const SW = `${import.meta.env.BASE_URL}assets/push-sw.js`;
 const SCOPE = `${import.meta.env.BASE_URL}assets/`;
 
 export function pushSupported(): boolean {
-  return !!KEY && typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
 async function registration() {
@@ -24,10 +23,13 @@ export async function currentPush(): Promise<PushSubscription | null> {
 export async function enablePush(centreId: string): Promise<boolean> {
   if (!pushSupported()) return false;
   if ((await Notification.requestPermission()) !== 'granted') return false;
+  const { data: key, error: keyErr } = await supabase.rpc('push_public_key');
+  if (keyErr) throw keyErr;
+  if (!key) throw new Error('Phone alerts are not ready yet. Try again in a minute.');
   const reg = await registration();
   await navigator.serviceWorker.ready;
   const sub = (await reg.pushManager.getSubscription())
-    ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(KEY!) as BufferSource });
+    ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key as string) as BufferSource });
   const j = sub.toJSON();
   const { error } = await supabase.rpc('save_push_subscription', {
     p_centre: centreId, p_endpoint: sub.endpoint, p_p256dh: j.keys?.p256dh, p_auth: j.keys?.auth, p_user_agent: navigator.userAgent.slice(0, 200),
