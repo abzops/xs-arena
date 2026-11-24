@@ -24,6 +24,8 @@ const BookPage = lazy(() => import('./features/booking/BookPage').then((m) => ({
 const TicketPage = lazy(() => import('./features/booking/TicketPage').then((m) => ({ default: m.TicketPage })));
 const BookingsPage = lazy(() => import('./features/booking/BookingsPage').then((m) => ({ default: m.BookingsPage })));
 const RcPage = lazy(() => import('./features/rc/RcPage').then((m) => ({ default: m.RcPage })));
+const DaySummaryPage = lazy(() => import('./features/owner/DaySummaryPage').then((m) => ({ default: m.DaySummaryPage })));
+const OffersPage = lazy(() => import('./features/owner/OffersPage').then((m) => ({ default: m.OffersPage })));
 const DesignerPage = lazy(() => import('./features/floor/DesignerPage').then((m) => ({ default: m.DesignerPage })));
 const PricesPage = lazy(() => import('./features/prices/PricesPage').then((m) => ({ default: m.PricesPage })));
 const BillsPage = lazy(() => import('./features/billing/BillsPage').then((m) => ({ default: m.BillsPage })));
@@ -132,6 +134,8 @@ const router = createBrowserRouter(
           <Route path="customers" element={<Allow><CustomersPage /></Allow>} />
           <Route path="customers/:customerId" element={<Allow><CustomerDetail /></Allow>} />
           <Route path="snacks" element={<Allow><InventoryPage /></Allow>} />
+          <Route path="day" element={<Allow perm="reports.view"><DaySummaryPage /></Allow>} />
+          <Route path="offers" element={<Allow perm="customers.manage"><OffersPage /></Allow>} />
           <Route path="rc" element={<Allow perm="floor.operate"><RcPage /></Allow>} />
           <Route path="expenses" element={<Allow perm="expenses.manage"><ExpensesPage /></Allow>} />
           <Route path="team" element={<Allow><TeamPage /></Allow>} />

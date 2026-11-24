@@ -579,3 +579,6 @@ body:has(.overlay) .toasts { top: calc(12px + env(safe-area-inset-top)); bottom:
 .badge.rc-charging, .badge.rc-in_use { background: var(--info-bg); color: var(--info); }
 .badge.rc-repair { background: var(--warn-bg); color: var(--warn); }
 .badge.rc-retired { background: var(--paper-2); color: var(--graphite); }
+.offer-preview { background: var(--ok-bg); border-radius: var(--r); padding: 12px 14px; white-space: pre-wrap; font-size: var(--t-sm); }
+.offer-preview p { margin: 4px 0 0; }
+.value.neg { color: var(--bad); }

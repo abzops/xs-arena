@@ -1,5 +1,5 @@
 import {
-  Banknote, Home, IndianRupee, LayoutGrid, LogOut, Menu, Package, PencilRuler, Receipt, Settings, Users, UsersRound, CalendarCheck, Car, Wallet,
+  Banknote, Home, IndianRupee, LayoutGrid, LogOut, Menu, Package, PencilRuler, Receipt, Settings, Users, UsersRound, CalendarCheck, Car, ClipboardList, Megaphone, Wallet,
 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ComponentType } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
@@ -19,10 +19,12 @@ const NAV: NavItem[] = [
   { to: 'bookings', label: 'Bookings', icon: CalendarCheck, perm: 'floor.operate' },
   { to: 'bills', label: 'Bills', icon: Receipt, perm: 'billing.create' },
   { to: 'customers', label: 'Customers', icon: Users },
+  { to: 'offers', label: 'Send offer', icon: Megaphone, perm: 'customers.manage' },
   { to: 'shift', label: 'Shift & cash', icon: Banknote, perm: 'floor.operate' },
   { to: 'snacks', label: 'Snacks', icon: Package },
   { to: 'rc', label: 'RC fleet', icon: Car, perm: 'floor.operate', feature: 'rc_fleet' },
   { to: 'expenses', label: 'Expenses', icon: Wallet, perm: 'expenses.manage' },
+  { to: 'day', label: 'Day summary', icon: ClipboardList, perm: 'reports.view' },
   { to: 'prices', label: 'Prices', icon: IndianRupee, perm: 'pricing.manage' },
   { to: 'designer', label: 'Floor designer', icon: PencilRuler, perm: 'floor.design' },
   { to: 'team', label: 'Team', icon: UsersRound },
