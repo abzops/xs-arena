@@ -125,6 +125,7 @@ const router = createBrowserRouter(
         <Route path="/s/:slug" element={<CentreLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="floor" element={<Allow perm="floor.operate"><FloorPage /></Allow>} />
+          <Route path="ai" element={<Allow perm="floor.operate"><Navigate to="../floor?ai=1" replace /></Allow>} />
           <Route path="bookings" element={<Allow perm="floor.operate"><BookingsPage /></Allow>} />
           <Route path="designer" element={<Allow perm="floor.design"><DesignerPage /></Allow>} />
           <Route path="prices" element={<Allow><PricesPage /></Allow>} />

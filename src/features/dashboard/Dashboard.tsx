@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, Gift, IndianRupee, LayoutGrid, Package, Receipt, Search, Timer, UserPlus, Users, Wallet } from 'lucide-react';
+import { ChevronRight, Gift, IndianRupee, LayoutGrid, Package, Receipt, Search, Sparkles, Timer, UserPlus, Users, Wallet } from 'lucide-react';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { Loading, Notice, PushLink } from '../../components/ui';
@@ -24,7 +24,7 @@ function greeting(timeZone: string) {
 }
 
 export function Dashboard() {
-  const { centre, can } = useCentre();
+  const { centre, can, hasFeature } = useCentre();
   const base = `/s/${centre.slug}`;
   const summary = useQuery({
     queryKey: ['dashboard', centre.id],
@@ -55,6 +55,14 @@ export function Dashboard() {
         {can('billing.create') && <Link className="q" to={`${base}/bills`}><span className="q-ico"><Receipt size={21} /></span><span>Bills</span></Link>}
         {can('expenses.manage') && <Link className="q" to={`${base}/expenses?new=1`}><span className="q-ico"><Wallet size={21} /></span><span>Add expense</span></Link>}
       </nav>
+
+      {hasFeature('xs_ai') && can('floor.operate') && (
+        <Link className="ai-ask" to={`${base}/floor?ai=1`}>
+          <span className="q-ico"><Sparkles size={20} /></span>
+          <span className="ai-ask-text"><b>Ask XS AI</b><span>“Today’s revenue?” · “Table 1 start 1 hour” · voice or type, English or മലയാളം</span></span>
+          <ChevronRight size={18} />
+        </Link>
+      )}
 
       <PushLink className="hero-card" to={can('billing.create') ? `${base}/bills` : base}>
         <span className="hc-top"><span>Sales today · {s.bills_today} bill{s.bills_today === 1 ? '' : 's'}</span><ChevronRight size={18} /></span>

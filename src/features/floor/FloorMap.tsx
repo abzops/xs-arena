@@ -1,6 +1,7 @@
 // One SVG renderer for the designer, the live floor and the TV display, so they always match.
-import { useRef, type PointerEvent as RPE, type ReactNode } from 'react';
+import { useId, useRef, type PointerEvent as RPE, type ReactNode } from 'react';
 import { formatINR } from '../../lib/money';
+import { ArtDefs, ItemArt, Outline } from './Art';
 import { FIXTURE_LABEL, playedSeconds, timerText, toneOf, type Activity, type Fixture, type Floor, type Resource, type Tone } from '../../lib/floor';
 
 export const TONE_FILL: Record<Tone, string> = {
@@ -20,6 +21,7 @@ export function FloorMap({
   children?: ReactNode; className?: string;
 }) {
   const svg = useRef<SVGSVGElement>(null);
+  const p = `fm${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const drag = useRef<{ d: DragKind; sx: number; sy: number; moved: boolean } | null>(null);
   const act = (id: string) => activities.find((a) => a.id === id);
   const pad = 40;
@@ -56,7 +58,9 @@ export function FloorMap({
   return (
     <svg ref={svg} className={`floor-map fm-${mode} ${className ?? ''}`} viewBox={vb} preserveAspectRatio="xMidYMid meet"
       onPointerMove={move} onPointerUp={end} onPointerCancel={end} onPointerDown={() => onSelect?.(null)} role="img" aria-label={`${floor.name} floor plan`}>
-      <polygon className="fm-hall" points={outline.map((p) => p.join(',')).join(' ')} />
+      <ArtDefs p={p} />
+      <polygon className="fm-hall-shadow" points={outline.map((q) => q.join(',')).join(' ')} transform="translate(0 10)" />
+      <polygon className="fm-hall" points={outline.map((q) => q.join(',')).join(' ')} style={{ fill: `url(#${p}-planks)` }} />
       {mode === 'design' && <Grid w={floor.width} h={floor.height} />}
       {floor.fixtures.map((f) => <FixtureShape key={f.id} f={f} selected={selectedId === f.id} onDown={start({ kind: 'fixture', id: f.id, handle: 'move' })}
         onResize={start({ kind: 'fixture', id: f.id, handle: 'resize' })} design={mode === 'design'} />)}
@@ -65,36 +69,43 @@ export function FloorMap({
         const s = r.session;
         const played = s ? playedSeconds(s, snapshotAt, now) : 0;
         const tone = toneOf(r, played);
-        const fill = mode === 'design' ? (a?.color ?? '#888') : TONE_FILL[tone];
+        const design = mode === 'design';
+        const colour = design ? (a?.color ?? '#888') : TONE_FILL[tone];
         const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
         const sel = selectedId === r.id;
-        const fs = Math.max(mode === 'design' ? 18 : 30, Math.min(r.w, r.h) * 0.2);
+        const small = Math.min(r.w, r.h);
+        const fs = Math.min(mode === 'tv' ? 56 : 40, Math.max(design ? 18 : mode === 'tv' ? 30 : 24, small * 0.16));
+        const ring = Math.max(8, small * 0.035);
+        const main = design ? r.name : tone === 'off' ? 'Out of service' : s ? timerText(s, played) : 'Free';
+        const sub = !design && s && (showNames || showMoney)
+          ? [showNames ? s.customer?.name?.split(' ')[0] : null, showMoney && s.cost_paise != null ? formatINR(s.cost_paise) : null, s.status === 'paused' ? 'Paused' : null].filter(Boolean).join(' · ')
+          : '';
+        // label chip, counter-rotated so it always reads upright
+        const nameFs = fs * 0.62, mainFs = design ? fs * 0.8 : fs, subFs = fs * 0.52;
+        const lines = design ? [mainFs] : [nameFs, mainFs, ...(sub ? [subFs] : [])];
+        const chipH = lines.reduce((t, l) => t + l * 1.18, 0) + fs * 0.5;
+        const longest = Math.max(...(design ? [r.name.length * mainFs * 0.56] : [r.name.length * nameFs * 0.56, main.length * mainFs * 0.6, sub.length * subFs * 0.55]));
+        const chipW = Math.min(Math.max(r.w, r.h) * 0.92, longest + fs * 1.1);
+        let ty = cy - chipH / 2 + fs * 0.25;
         return (
           <g key={r.id} className={`fm-res tone-${tone} ${sel ? 'sel' : ''}`} transform={`rotate(${r.rotation} ${cx} ${cy})`}
-            onPointerDown={mode === 'design' ? start({ kind: 'resource', id: r.id, handle: 'move' }) : (e) => { e.stopPropagation(); onSelect?.(r.id, 'resource'); }}
-            role="button" aria-label={`${r.name}${mode !== 'design' ? `, ${tone}` : ''}`}>
-            {r.shape === 'round'
-              ? <ellipse cx={cx} cy={cy} rx={r.w / 2} ry={r.h / 2} fill={fill} className="fm-shape" />
-              : r.shape === 'polygon' && r.points?.length
-                ? <polygon points={r.points.map(([px, py]) => `${r.x + px},${r.y + py}`).join(' ')} fill={fill} className="fm-shape" />
-                : <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={Math.min(r.w, r.h) * 0.12} fill={fill} className="fm-shape" />}
-            <g transform={`rotate(${-r.rotation} ${cx} ${cy})`} className="fm-text">
-              <text x={cx} y={cy - (mode === 'design' ? 0 : fs * 0.55)} fontSize={fs * 0.8} textAnchor="middle" dominantBaseline="middle" className="fm-name">{r.name}</text>
-              {mode !== 'design' && (
-                <>
-                  <text x={cx} y={cy + fs * 0.45} fontSize={fs * 1.05} textAnchor="middle" dominantBaseline="middle" className="fm-timer">
-                    {tone === 'off' ? 'Out of service' : s ? timerText(s, played) : 'Free'}
-                  </text>
-                  {s && (showNames || showMoney) && (
-                    <text x={cx} y={cy + fs * 1.3} fontSize={fs * 0.62} textAnchor="middle" dominantBaseline="middle" className="fm-sub">
-                      {[showNames ? s.customer?.name?.split(' ')[0] : null, showMoney && s.cost_paise != null ? formatINR(s.cost_paise) : null,
-                        s.status === 'paused' ? 'Paused' : null].filter(Boolean).join(' · ')}
-                    </text>
-                  )}
-                </>
-              )}
+            onPointerDown={design ? start({ kind: 'resource', id: r.id, handle: 'move' }) : (e) => { e.stopPropagation(); onSelect?.(r.id, 'resource'); }}
+            role="button" aria-label={`${r.name}${!design ? `, ${tone}` : ''}`}>
+            <g className={tone === 'off' && !design ? 'fm-dim' : undefined}>
+              <ItemArt r={r} a={a} busy={!design && !!s} glow={colour} p={p} />
             </g>
-            {mode === 'design' && sel && (
+            {!design && <g style={{ stroke: colour, strokeWidth: ring }}><Outline r={r} a={a} grow={ring / 2 + 3} className="fm-ring" /></g>}
+            {sel && <g style={{ strokeWidth: Math.max(6, ring * 0.8) }}><Outline r={r} a={a} grow={ring + 8} className="fm-sel" /></g>}
+            <g transform={`rotate(${-r.rotation} ${cx} ${cy})`} className="fm-text">
+              <rect x={cx - chipW / 2} y={cy - chipH / 2} width={chipW} height={chipH} rx={Math.min(chipH / 2, fs * 0.6)} className="fm-chip" style={{ fill: colour }} />
+              {lines.map((size, i) => {
+                const yy = ty + size * 0.59; ty += size * 1.18;
+                const text = design ? main : [r.name, main, sub][i];
+                const cls = design ? 'fm-name' : ['fm-name', 'fm-timer', 'fm-sub'][i];
+                return <text key={i} x={cx} y={yy} fontSize={size} textAnchor="middle" dominantBaseline="central" className={cls}>{text}</text>;
+              })}
+            </g>
+            {design && sel && (
               <rect x={r.x + r.w - 22} y={r.y + r.h - 22} width={44} height={44} rx={10} className="fm-handle"
                 onPointerDown={start({ kind: 'resource', id: r.id, handle: 'resize' })} aria-label="Resize" />
             )}

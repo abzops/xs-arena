@@ -17,6 +17,16 @@
 .q:active .q-ico { transform: scale(0.92); }
 @media (hover: hover) and (pointer: fine) { .q:not(.primary):hover .q-ico { background: var(--paper-2); } }
 
+/* Ask XS AI bar */
+.ai-ask { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 18px; background: var(--paper);
+  color: var(--ink); text-decoration: none; transition: transform 120ms var(--ease-out); }
+.ai-ask .q-ico { width: 44px; height: 44px; flex: none; background: linear-gradient(135deg, #7B5CFF, #2A78D6); color: #fff; }
+.ai-ask-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.ai-ask-text b { font-weight: 600; }
+.ai-ask-text span { color: var(--graphite); font-size: var(--t-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-ask:active { transform: scale(0.98); }
+@media (hover: hover) and (pointer: fine) { .ai-ask:hover { background: var(--paper-2); } }
+
 /* Hero card */
 .hero-card { display: grid; gap: 6px; padding: 20px; border-radius: 22px; background: var(--carbon); color: #F6F6F4; text-decoration: none;
   transition: transform 140ms var(--ease-out); }
@@ -76,7 +86,7 @@
 /* Laptop / iPad landscape: two columns, quick actions as pills beside the greeting */
 @media (min-width: 1000px) {
   .dash { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-areas:
-      "head head" "quick quick" "hero stats" "today month" "recent recent"; align-items: start; column-gap: 24px; row-gap: 24px; }
+      "head head" "quick quick" "ai ai" "hero stats" "today month" "recent recent"; align-items: start; column-gap: 24px; row-gap: 24px; }
   .dash-head { grid-area: head; align-self: end; }
   .quick { grid-area: quick; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
   .q { white-space: nowrap; }
@@ -85,6 +95,7 @@
   .q-ico { width: 32px; height: 32px; background: transparent; }
   .q.primary { background: var(--primary); color: var(--on-primary); }
   .q.primary .q-ico { background: transparent; }
+  .ai-ask { grid-area: ai; }
   .hero-card { grid-area: hero; padding: 24px 26px; min-height: 100%; display: flex; flex-direction: column; }
   .hero-card .paybar { margin-top: auto; }
   .hc-value { font-size: 3.5rem; }
@@ -96,7 +107,7 @@
 }
 /* Wide screens: actions sit beside the greeting */
 @media (min-width: 1400px) {
-  .dash { grid-template-areas: "head quick" "hero stats" "today month" "recent recent"; }
+  .dash { grid-template-areas: "head quick" "ai ai" "hero stats" "today month" "recent recent"; }
   .quick { justify-content: flex-end; align-self: end; }
 }
 @media (min-width: 1000px) and (hover: hover) and (pointer: fine) {

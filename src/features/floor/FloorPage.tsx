@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Smartphone, Sparkles, Square, Users, WifiOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { ReasonSheet, WhatsAppPairButton } from '../../components/centre';
 import { Empty, Field, Loading, Notice, Segmented, Sheet, useToast } from '../../components/ui';
@@ -42,7 +42,11 @@ export function FloorPage() {
   const [waiting, setWaiting] = useState(false);
   const [tabs, setTabs] = useState(false);
   const [checkIn, setCheckIn] = useState(false);
-  const [ai, setAi] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [ai, setAiState] = useState(() => params.get('ai') === '1');
+  const aiParam = params.get('ai') === '1';
+  useEffect(() => { if (aiParam) setAiState(true); }, [aiParam]);
+  const setAi = (v: boolean) => { setAiState(v); if (!v && params.has('ai')) { params.delete('ai'); setParams(params, { replace: true }); } };
   const [seat, setSeat] = useState<Parameters<typeof SeatSheet>[0]['data'] | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
