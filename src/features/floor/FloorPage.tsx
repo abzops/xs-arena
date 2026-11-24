@@ -1,6 +1,6 @@
 // Live floor: every table, console and track with live timers. Tap one to start, pause, extend, move, bill.
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Square, Users, WifiOff, X } from 'lucide-react';
+import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Sparkles, Square, Users, WifiOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
@@ -17,6 +17,7 @@ import { msgReady, msgStarted, msgTimeUp } from '../../lib/messages';
 import { formatINR } from '../../lib/money';
 import { rpc } from '../../lib/supabase';
 import { BillSheet, useKnownCustomer } from '../billing/BillSheet';
+import { AiSheet } from '../ai/AiSheet';
 import { CheckInSheet, SeatSheet } from '../booking/BookingsPage';
 import { durationLabel, type Booking } from '../booking/types';
 import { FloorMap, TONE_FILL } from './FloorMap';
@@ -28,7 +29,7 @@ const VIEW_KEY = 'xs-arena-floor-view';
 const SOUND_KEY = 'xs-arena-alert-sound';
 
 export function FloorPage() {
-  const { centre, can } = useCentre();
+  const { centre, can, hasFeature } = useCentre();
   const state = useFloorState();
   const now = useNow();
   const pending = usePendingCommands();
@@ -40,6 +41,7 @@ export function FloorPage() {
   const [waiting, setWaiting] = useState(false);
   const [tabs, setTabs] = useState(false);
   const [checkIn, setCheckIn] = useState(false);
+  const [ai, setAi] = useState(false);
   const [seat, setSeat] = useState<Parameters<typeof SeatSheet>[0]['data'] | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
@@ -86,6 +88,7 @@ export function FloorPage() {
           {count(['over']) > 0 && <span className="pill" style={{ background: 'var(--bad-bg)', color: 'var(--bad)' }}>{count(['over'])} time's up</span>}
         </div>
         <div className="row">
+          {hasFeature('xs_ai') && <button className="btn small" onClick={() => setAi(true)}><Sparkles size={16} /> XS AI</button>}
           <button className="btn small" onClick={() => setCheckIn(true)}><QrCode size={16} /> Check in</button>
           <button className="btn small" onClick={() => setWaiting(true)}><Users size={16} /> Waiting {data.waitlist.length ? `(${data.waitlist.length})` : ''}</button>
           <button className="btn small" onClick={() => setTabs(true)}><Receipt size={16} /> Open bills {data.open_tabs.length ? `(${data.open_tabs.length})` : ''}</button>
@@ -136,6 +139,7 @@ export function FloorPage() {
         onClose={() => setOpen(null)} onBill={(tab) => { setOpen(null); setBill(tab); }} />}
       {bill && <BillSheet tabId={bill} onClose={() => setBill(null)} />}
       {waiting && <WaitlistSheet data={data} onClose={() => setWaiting(false)} />}
+      {ai && <AiSheet data={data} onClose={() => setAi(false)} />}
       {checkIn && <CheckInSheet onClose={() => setCheckIn(false)} onFound={(c) => { setCheckIn(false); setSeat(c); }} />}
       {seat && <SeatSheet data={seat} onClose={() => setSeat(null)} />}
       {tabs && <OpenTabsSheet data={data} onClose={() => setTabs(false)} onOpen={(t) => { setTabs(false); setBill(t); }} />}

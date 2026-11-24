@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Copy, Plus, RotateCw, Save, Shapes, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useBlocker } from 'react-router';
+import { useBlocker, useSearchParams } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { Empty, Field, Loading, Notice, Segmented, Sheet, useToast } from '../../components/ui';
 import { errorMessage } from '../../lib/errors';
@@ -24,7 +24,10 @@ export function DesignerPage() {
   const [dirty, setDirty] = useState(false);
   const [sel, setSel] = useState<{ id: string; kind: 'resource' | 'fixture' } | null>(null);
   const [editOutline, setEditOutline] = useState(false);
-  const [quick, setQuick] = useState(false);
+  const [params] = useSearchParams();
+  // XS AI can open the quick layout pre-filled: ?quick={"<activity id>": count}
+  const preset = (() => { try { return JSON.parse(params.get('quick') ?? 'null') as Record<string, number> | null; } catch { return null; } })();
+  const [quick, setQuick] = useState(!!preset);
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -188,7 +191,7 @@ export function DesignerPage() {
           )}
         </aside>
       </div>
-      {quick && <QuickLayout activities={activities} floor={draft.floor} onClose={() => setQuick(false)}
+      {quick && <QuickLayout activities={activities} floor={draft.floor} preset={preset} onClose={() => setQuick(false)}
         onApply={(resources) => { update((d) => { d.resources = [...d.resources.filter((r) => live(r.id)), ...resources]; }); setQuick(false); setSel(null); }} />}
     </div>
   );
@@ -284,10 +287,11 @@ function FixtureInspector({ f, onChange, onDelete }: { f: Fixture; onChange: (p:
 }
 
 /** "4 pool, 2 snooker, 6 PS5, 1 drift track" → a tidy starter layout. */
-function QuickLayout({ activities, floor, onClose, onApply }: {
-  activities: Activity[]; floor: Floor; onClose: () => void; onApply: (r: Resource[]) => void;
+function QuickLayout({ activities, floor, preset, onClose, onApply }: {
+  activities: Activity[]; floor: Floor; preset?: Record<string, number> | null; onClose: () => void; onApply: (r: Resource[]) => void;
 }) {
-  const [counts, setCounts] = useState<Record<string, number>>(() => Object.fromEntries(activities.map((a) => [a.id, a.kind === 'track' ? 1 : 2])));
+  const [counts, setCounts] = useState<Record<string, number>>(() => Object.fromEntries(activities.map((a) =>
+    [a.id, preset ? Math.max(0, Math.min(40, Number(preset[a.id]) || 0)) : a.kind === 'track' ? 1 : 2])));
   const build = () => {
     const out: Resource[] = [];
     const gap = 80;

@@ -124,3 +124,12 @@
 .upcoming-card.st-late .upcoming-cta { color: var(--warn); }
 .points-box { display: grid; gap: 6px; background: var(--ok-bg); border-radius: var(--r); padding: 10px 12px; }
 .extend-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+
+/* XS AI */
+.ai-turns { display: grid; gap: 14px; }
+.ai-turn { display: grid; gap: 6px; }
+.ai-q { justify-self: end; background: var(--ink); color: var(--paper); border-radius: 14px 14px 4px 14px; padding: 8px 12px; max-width: 85%; margin: 0; }
+.ai-a { margin: 0; display: flex; gap: 6px; align-items: flex-start; }
+.ai-a.bad { color: var(--bad); }
+.ai-card { display: grid; gap: 10px; background: var(--paper-2); border-radius: var(--r); padding: 12px 14px; }
+.ai-input { display: flex; gap: 8px; align-items: center; position: sticky; bottom: 0; background: var(--paper); padding-top: 4px; }
