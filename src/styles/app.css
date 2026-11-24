@@ -572,3 +572,10 @@ body:has(.overlay) .toasts { top: calc(12px + env(safe-area-inset-top)); bottom:
 /* Loyalty: tier badge, reward/tier editor rows */
 .tier-badge { margin-left: 8px; font-size: var(--t-xs); font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--paper); }
 .reward-row { gap: 8px; flex-wrap: wrap; padding: 8px; border-radius: var(--r); background: var(--paper-2); }
+
+/* RC fleet */
+.rc-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.badge.rc-ready { background: var(--ok-bg); color: var(--ok); }
+.badge.rc-charging, .badge.rc-in_use { background: var(--info-bg); color: var(--info); }
+.badge.rc-repair { background: var(--warn-bg); color: var(--warn); }
+.badge.rc-retired { background: var(--paper-2); color: var(--graphite); }

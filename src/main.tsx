@@ -23,6 +23,7 @@ import { errorMessage } from './lib/errors';
 const BookPage = lazy(() => import('./features/booking/BookPage').then((m) => ({ default: m.BookPage })));
 const TicketPage = lazy(() => import('./features/booking/TicketPage').then((m) => ({ default: m.TicketPage })));
 const BookingsPage = lazy(() => import('./features/booking/BookingsPage').then((m) => ({ default: m.BookingsPage })));
+const RcPage = lazy(() => import('./features/rc/RcPage').then((m) => ({ default: m.RcPage })));
 const DesignerPage = lazy(() => import('./features/floor/DesignerPage').then((m) => ({ default: m.DesignerPage })));
 const PricesPage = lazy(() => import('./features/prices/PricesPage').then((m) => ({ default: m.PricesPage })));
 const BillsPage = lazy(() => import('./features/billing/BillsPage').then((m) => ({ default: m.BillsPage })));
@@ -131,6 +132,7 @@ const router = createBrowserRouter(
           <Route path="customers" element={<Allow><CustomersPage /></Allow>} />
           <Route path="customers/:customerId" element={<Allow><CustomerDetail /></Allow>} />
           <Route path="snacks" element={<Allow><InventoryPage /></Allow>} />
+          <Route path="rc" element={<Allow perm="floor.operate"><RcPage /></Allow>} />
           <Route path="expenses" element={<Allow perm="expenses.manage"><ExpensesPage /></Allow>} />
           <Route path="team" element={<Allow><TeamPage /></Allow>} />
           <Route path="settings" element={<Allow><SettingsPage /></Allow>} />

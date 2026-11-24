@@ -1,5 +1,5 @@
 import {
-  Banknote, Home, IndianRupee, LayoutGrid, LogOut, Menu, Package, PencilRuler, Receipt, Settings, Users, UsersRound, CalendarCheck, Wallet,
+  Banknote, Home, IndianRupee, LayoutGrid, LogOut, Menu, Package, PencilRuler, Receipt, Settings, Users, UsersRound, CalendarCheck, Car, Wallet,
 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ComponentType } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase';
 import { ROLE_LABEL } from '../lib/types';
 import { useCentre } from './centre';
 
-type NavItem = { to: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number }>; perm?: string };
+type NavItem = { to: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number }>; perm?: string; feature?: string };
 
 const NAV: NavItem[] = [
   { to: '', label: 'Home', icon: Home },
@@ -21,6 +21,7 @@ const NAV: NavItem[] = [
   { to: 'customers', label: 'Customers', icon: Users },
   { to: 'shift', label: 'Shift & cash', icon: Banknote, perm: 'floor.operate' },
   { to: 'snacks', label: 'Snacks', icon: Package },
+  { to: 'rc', label: 'RC fleet', icon: Car, perm: 'floor.operate', feature: 'rc_fleet' },
   { to: 'expenses', label: 'Expenses', icon: Wallet, perm: 'expenses.manage' },
   { to: 'prices', label: 'Prices', icon: IndianRupee, perm: 'pricing.manage' },
   { to: 'designer', label: 'Floor designer', icon: PencilRuler, perm: 'floor.design' },
@@ -33,10 +34,10 @@ const mark = `${import.meta.env.BASE_URL}brand/badge-black.svg`;
 const markOnDark = `${import.meta.env.BASE_URL}brand/badge-white.svg`;
 
 export function Shell() {
-  const { centre, role, can, canWrite, subscription } = useCentre();
+  const { centre, role, can, canWrite, subscription, hasFeature } = useCentre();
   const [more, setMore] = useState(false);
   const location = useLocation();
-  const items = NAV.filter((n) => !n.perm || can(n.perm));
+  const items = NAV.filter((n) => (!n.perm || can(n.perm)) && (!n.feature || hasFeature(n.feature)));
   const primary = items.slice(0, 4);
   const overflow = items.slice(4);
   const base = `/s/${centre.slug}`;
