@@ -13,7 +13,8 @@ function csp(supabaseUrl: string): Plugin {
     // Cloudflare Web Analytics is injected by the Cloudflare proxy in front of the site.
     "script-src 'self' https://static.cloudflareinsights.com",
     "style-src 'self'",
-    "img-src 'self' data: blob:",
+    // bill photos are served from Supabase Storage through short-lived signed links
+    `img-src 'self' data: blob: ${api.origin}`,
     "font-src 'self'",
     `connect-src 'self' ${api.origin} wss://${api.host} https://cloudflareinsights.com`,
     "manifest-src 'self'",

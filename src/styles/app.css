@@ -559,3 +559,12 @@ body:has(.overlay) .toasts { top: calc(12px + env(safe-area-inset-top)); bottom:
     width: 40px; height: 40px; min-height: 40px; padding: 0; margin-right: -4px;
     border: 0; background: transparent; color: var(--graphite); border-radius: 50%; cursor: pointer; }
 }
+
+/* Expenses: bill photos */
+.exp-row { position: relative; }
+.exp-row:has(.exp-photo) .item { padding-right: 56px; }
+.exp-photo { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+.bill-thumb { position: relative; justify-self: start; }
+.bill-thumb img { max-height: 160px; border-radius: var(--r); display: block; }
+.bill-thumb .btn { position: absolute; top: 4px; right: 4px; background: var(--paper); }
+.bill-photo { width: 100%; height: auto; border-radius: var(--r); }

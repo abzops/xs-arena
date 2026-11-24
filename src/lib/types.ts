@@ -30,6 +30,11 @@ export type Product = {
 export type Expense = {
   id: string; centre_id: string; category: string; amount_paise: number; expense_date: string; method: Method;
   paid_from: 'drawer' | 'bank' | 'owner'; description: string | null; status: 'ok' | 'void'; created_at: string;
+  photo_path?: string | null; recurring_id?: string | null;
+};
+export type RecurringExpense = {
+  id: string; centre_id: string; category: string; amount_paise: number; day_of_month: number; method: Method;
+  paid_from: Expense['paid_from']; description: string | null; starts_on: string; active: boolean;
 };
 export const EXPENSE_CATEGORIES = [
   'Rent', 'Electricity', 'Salary', 'Snacks stock', 'RC repairs', 'Batteries', 'Equipment', 'Maintenance', 'Internet', 'Marketing', 'Other',
