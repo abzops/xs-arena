@@ -37,9 +37,17 @@ export function TicketPage() {
   useEffect(() => {
     QRCode.toString(ticketUrl(token), { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }).then(setQr).catch(() => undefined);
   }, [token]);
+  useEffect(() => { window.scrollTo(0, 0); }, [token]);
   useEffect(() => { if (t) document.title = `Booking ${t.booking.code} · ${t.centre.name}`; }, [t]);
 
-  if (err && !t) return <main className="book-page"><div className="book-wrap"><Notice tone="bad">{err}</Notice></div></main>;
+  if (err && !t) {
+    return (
+      <main className="book-page"><div className="book-wrap">
+        <Notice tone="bad">{err}</Notice>
+        <p className="muted">This ticket link doesn't work. Open the link you got when you booked, or contact the centre.</p>
+      </div></main>
+    );
+  }
   if (!t) return <main className="book-page" aria-busy="true"><div className="center-screen"><span className="spinner" /></div></main>;
 
   const b = t.booking, c = t.centre, tz = c.timezone;
@@ -49,6 +57,8 @@ export function TicketPage() {
   const holdUntil = time(new Date(new Date(b.starts_at).getTime() + c.hold_minutes * 60_000).toISOString());
   const live = b.status === 'confirmed' || b.status === 'arrived' || b.status === 'late';
   const where = [c.address, c.city].filter(Boolean).join(', ');
+  const stamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const calendar = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${b.activity} at ${c.name}`)}&dates=${stamp(b.starts_at)}/${stamp(b.ends_at)}&details=${encodeURIComponent(`Booking code ${b.code}. Ticket: ${ticketUrl(token)}`)}&location=${encodeURIComponent([c.name, where].filter(Boolean).join(', '))}`;
   const share = `My ${b.activity} booking at ${c.name}: ${date === today ? 'today' : formatDay(date)}, ${time(b.starts_at)} (${durationLabel(b.minutes)}). Code ${b.code}. ${ticketUrl(token)}`;
 
   async function cancel() {
@@ -76,13 +86,15 @@ export function TicketPage() {
             <div><dt>Players</dt><dd>{b.party_size}</dd></div>
             <div><dt>Name</dt><dd>{b.name}</dd></div>
             {b.resource && <div><dt>Table</dt><dd>{b.resource}</dd></div>}
-            {b.estimate_paise > 0 && <div><dt>About</dt><dd>{formatINR(b.estimate_paise)}</dd></div>}
+            {b.estimate_paise > 0 && <div><dt>Est. price</dt><dd>{formatINR(b.estimate_paise)} <small className="muted">at the centre</small></dd></div>}
+            {where && <div className="span-2"><dt>Where</dt><dd>{c.name}, {where}</dd></div>}
           </dl>
           {live && (
             <div className="ticket-qr">
               <div role="img" aria-label="Check-in QR code" dangerouslySetInnerHTML={{ __html: qr }} />
               <p>Code <b className="ticket-code">{b.code}</b></p>
-              <p className="muted">Show this at the counter. We hold your table until {holdUntil}.</p>
+              <p className="muted">Show this at the counter. We keep your booking until {holdUntil}.</p>
+              <p className="muted">This page is your ticket — bookmark it or share it to yourself on WhatsApp.</p>
             </div>
           )}
           {b.status === 'seated' && (b.session_status === 'running' || b.session_status === 'paused') && <Notice tone="ok">Enjoy your game{b.resource ? ` on ${b.resource}` : ''}!</Notice>}
@@ -90,14 +102,18 @@ export function TicketPage() {
 
         <div className="stack">
           {live && (
-            <a className="btn block" href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noreferrer">Share on WhatsApp</a>
+            <>
+              <a className="btn block" href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noreferrer">Share on WhatsApp</a>
+              <a className="btn block" href={calendar} target="_blank" rel="noreferrer">Add to calendar</a>
+            </>
           )}
+          {b.status === 'cancelled' && <Notice tone="info">This booking is cancelled. The time is free for others now.</Notice>}
           {where && <a className="btn block" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${c.name}, ${where}`)}`} target="_blank" rel="noreferrer">Directions</a>}
           {c.phone && <a className="btn block" href={`tel:${c.phone}`}>Call {c.name}</a>}
           {t.can_cancel && !confirmCancel && <button type="button" className="btn block ghost" onClick={() => setConfirmCancel(true)}>Cancel booking</button>}
           {confirmCancel && (
             <div className="card stack">
-              <p>Cancel your {b.activity} booking at {time(b.starts_at)}?</p>
+              <p>Cancel your {b.activity} booking on {date === today ? 'today' : formatDay(date)} at {time(b.starts_at)}?</p>
               <div className="row">
                 <button type="button" className="btn" onClick={() => setConfirmCancel(false)}>Keep it</button>
                 <button type="button" className="btn danger" disabled={cancelling} onClick={cancel}>{cancelling ? 'Cancelling…' : 'Yes, cancel'}</button>
@@ -105,7 +121,7 @@ export function TicketPage() {
             </div>
           )}
           {err && <Notice tone="bad">{err}</Notice>}
-          <Link className="btn block ghost" to={`/b/${c.slug}`}>Book another game</Link>
+          <Link className={`btn block ${live ? 'ghost' : 'primary'}`} to={`/b/${c.slug}`}>{live ? 'Book another game' : 'Book again'}</Link>
         </div>
         <p className="book-foot muted">Powered by <Logo width={84} className="inline-logo" /></p>
       </div>

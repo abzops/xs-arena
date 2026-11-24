@@ -1,11 +1,11 @@
 // Public booking page at /b/:slug. No sign-in: pick a game, day, length and time; name + phone only after "Book".
 // Customers book a game type, not a table — the centre seats them at any free table of that game.
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Logo, Notice, Sheet } from '../../components/ui';
 import { addDays, formatDay, time12, todayInCentre } from '../../lib/dates';
 import { errorMessage } from '../../lib/errors';
-import type { Resource } from '../../lib/floor';
+import type { Activity, Resource } from '../../lib/floor';
 import { formatINR } from '../../lib/money';
 import { rpc } from '../../lib/supabase';
 import { FloorMap } from '../floor/FloorMap';
@@ -29,6 +29,9 @@ export function BookPage() {
   const [slot, setSlot] = useState<Slot | null>(null);
   const [booking, setBooking] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [showMap, setShowMap] = useState(() => typeof window === 'undefined' || window.innerWidth >= 700);
+  const step2 = useRef<HTMLElement>(null);
+  const pick = (id: string) => { setActivityId(id); window.setTimeout(() => step2.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); };
   const last = useMemo(() => { try { return localStorage.getItem(lastKey(slug)); } catch { return null; } }, [slug]);
 
   // page data; refresh the live floor every 30 s
@@ -77,7 +80,10 @@ export function BookPage() {
   if (loadErr && !data) {
     return (
       <main className="book-page">
-        <div className="book-wrap"><Notice tone="bad">{loadErr}</Notice></div>
+        <div className="book-wrap">
+          <Notice tone="bad">{loadErr}</Notice>
+          <p className="muted">Check the link you were sent, or ask the centre for their booking link.</p>
+        </div>
       </main>
     );
   }
@@ -108,11 +114,16 @@ export function BookPage() {
         {floor && data.resources.length > 0 && (
           <section className="book-live card" aria-label="Live floor">
             <div className="book-live-head">
-              <h2>Right now</h2>
-              <span className="legend"><i className="dot free" /> Free <i className="dot busy" /> Playing</span>
+              <h2>The floor right now</h2>
+              <button type="button" className="btn small ghost" onClick={() => setShowMap(!showMap)} aria-expanded={showMap}>{showMap ? 'Hide' : 'Show'}</button>
             </div>
-            <FloorMap floor={floor} resources={mapRes.filter((r) => r.floor_id === floor.id)} activities={[]} mode="tv"
-              showMoney={false} showNames={false} className="book-map" />
+            {showMap && (
+              <>
+                <span className="legend"><i className="dot free" /> Free <i className="dot busy" /> Busy</span>
+                <FloorMap floor={floor} resources={mapRes.filter((r) => r.floor_id === floor.id)} activities={data.activities as unknown as Activity[]} mode="tv"
+                  showMoney={false} showNames={false} busyText="Busy" highlight={activityId} className="book-map" />
+              </>
+            )}
           </section>
         )}
 
@@ -121,7 +132,7 @@ export function BookPage() {
           {data.activities.length === 0 && <Notice tone="warn">Nothing can be booked online right now. Please call {c.phone ?? 'the centre'}.</Notice>}
           <div className="game-grid">
             {data.activities.map((a) => (
-              <button key={a.id} type="button" className="game-card" aria-pressed={a.id === activityId} onClick={() => setActivityId(a.id)}>
+              <button key={a.id} type="button" className="game-card" aria-pressed={a.id === activityId} onClick={() => pick(a.id)}>
                 <span className="game-dot" style={{ background: a.color }} />
                 <b>{a.name}</b>
                 <span className="muted">{priceLabel(a.price)}</span>
@@ -133,9 +144,9 @@ export function BookPage() {
 
         {act && (
           <>
-            <section className="book-step">
+            <section className="book-step" ref={step2}>
               <h2><span className="step-n">2</span> Day</h2>
-              <div className="chips scroll">
+              <div className="chips scroll fade-end">
                 {days.map((d, i) => (
                   <button key={d} type="button" className="chip" aria-pressed={d === day} onClick={() => setDay(d)}>
                     {i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : formatDay(d)}
@@ -152,10 +163,13 @@ export function BookPage() {
                 ))}
               </div>
               {act.max_players > 1 && (
-                <div className="stepper" role="group" aria-label="Players">
-                  <button type="button" className="btn small icon-btn" aria-label="Fewer players" disabled={players <= 1} onClick={() => setPlayers(players - 1)}>−</button>
-                  <span><b className="num">{players}</b> player{players > 1 ? 's' : ''}</span>
-                  <button type="button" className="btn small icon-btn" aria-label="More players" disabled={players >= act.max_players} onClick={() => setPlayers(players + 1)}>+</button>
+                <div className="row" style={{ gap: 12 }}>
+                  <div className="stepper" role="group" aria-label="Players">
+                    <button type="button" className="btn small icon-btn" aria-label="Fewer players" disabled={players <= 1} onClick={() => setPlayers(players - 1)}>−</button>
+                    <span><b className="num">{players}</b> player{players > 1 ? 's' : ''}</span>
+                    <button type="button" className="btn small icon-btn" aria-label="More players" disabled={players >= act.max_players} onClick={() => setPlayers(players + 1)}>+</button>
+                  </div>
+                  {players >= act.max_players && <span className="muted" style={{ fontSize: 'var(--t-sm)' }}>Max {act.max_players} per {act.kind === 'console' ? 'console' : act.kind === 'track' ? 'track' : 'table'}. Bigger group? Book two.</span>}
                 </div>
               )}
             </section>
@@ -171,7 +185,7 @@ export function BookPage() {
                   {slots.map((s) => (
                     <button key={s.at} type="button" className="slot" disabled={!s.free} aria-pressed={slot?.at === s.at}
                       aria-label={`${time12(s.local)}${s.free ? '' : ', full'}`} onClick={() => setSlot(s)}>
-                      {time12(s.local)}
+                      {time12(s.local)}{!s.free && <small>Full</small>}
                     </button>
                   ))}
                 </div>
@@ -185,8 +199,8 @@ export function BookPage() {
       {act && slot && minutes && day && (
         <div className="book-bar" role="region" aria-label="Your choice">
           <div>
-            <b>{act.name} · {day === days[0] ? 'Today' : formatDay(day)} · {time12(slot.local)}</b>
-            <span className="muted">{durationLabel(minutes)} · {players} player{players > 1 ? 's' : ''}{estimate > 0 && ` · about ${formatINR(estimate)}`}</span>
+            <b>{time12(slot.local)} · {day === days[0] ? 'Today' : day === days[1] ? 'Tomorrow' : formatDay(day)}</b>
+            <span className="muted">{act.name} · {durationLabel(minutes)} · {players} player{players > 1 ? 's' : ''}{estimate > 0 && ` · ${formatINR(estimate)}`}</span>
           </div>
           <button type="button" className="btn primary" onClick={() => setBooking(true)}>Book</button>
         </div>
@@ -210,9 +224,13 @@ function ConfirmSheet({ slug, activityId, activityName, slot, day, minutes, play
   const [phone, setPhone] = useState(() => { try { return localStorage.getItem('xs-arena-book-phone') ?? ''; } catch { return ''; } });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [phoneErr, setPhoneErr] = useState<string | null>(null);
+  const digits = phone.replace(/\D/g, '');
+  const phoneOk = digits.length === 10 || (digits.length === 12 && digits.startsWith('91'));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (!phoneOk) { setPhoneErr('Enter a 10-digit mobile number, e.g. 98470 12345'); return; }
     setErr(null); setBusy(true);
     try {
       const r = await rpc<{ token: string }>('create_booking', {
@@ -239,15 +257,16 @@ function ConfirmSheet({ slug, activityId, activityName, slot, day, minutes, play
         <div className="book-summary">
           <b>{activityName}</b>
           <span>{isToday ? 'Today' : formatDay(day)}, {time12(slot.local)} · {durationLabel(minutes)} · {players} player{players > 1 ? 's' : ''}</span>
-          {estimate > 0 && <span className="muted">About {formatINR(estimate)}. You pay for the time you actually play.</span>}
+          {estimate > 0 && <span className="muted">{formatINR(estimate)} for {durationLabel(minutes)}{players > 1 ? ` (${players} players)` : ''}, paid at the centre. If you play longer, the extra time is added.</span>}
         </div>
         <label className="field"><span>Your name</span>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required maxLength={80} /></label>
         <label className="field"><span>Phone number</span>
-          <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel" required
-            placeholder="98470 12345" /></label>
+          <input className="input" value={phone} onChange={(e) => { setPhone(e.target.value.replace(/[^\d+\s-]/g, '')); setPhoneErr(null); }} inputMode="tel" autoComplete="tel" required
+            maxLength={16} placeholder="98470 12345" aria-invalid={!!phoneErr} aria-describedby="phone-help" />
+          <small id="phone-help" className={phoneErr ? 'field-error' : 'muted'}>{phoneErr ?? 'We only use it to confirm your booking.'}</small></label>
         <Notice tone="info">
-          No payment now — pay at the centre after you play. We hold your table for {holdMinutes} minutes after your time.
+          No payment now — pay at the centre after you play. We keep your booking for {holdMinutes} minutes after your time.
         </Notice>
         {err && <Notice tone="bad">{err}</Notice>}
         <button className="btn primary block xl" disabled={busy}>{busy ? 'Booking…' : 'Confirm booking'}</button>

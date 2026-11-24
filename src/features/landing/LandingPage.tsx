@@ -1,8 +1,9 @@
-import { Check } from 'lucide-react';
+import { ArrowUp, Check, Mic } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Logo } from '../../components/ui';
 import { primaryCta, SIGNUP_OPEN } from '../../lib/flags';
+import { AiOrb } from '../ai/Orb';
 import './landing.css';
 
 // Interim landing page for XS Arena. The full owner-first page (live floor demo,
@@ -35,7 +36,7 @@ function Mark({ dark = true }: { dark?: boolean }) {
   return (
     <span className={`lp-mark ${dark ? 'on-dark' : ''}`}>
       <img src={`${BRAND}${dark ? 'badge-white' : 'badge-black'}.svg`} alt="" width={30} height={30} />
-      <span>Arena</span>
+      <span>XS Arena</span>
     </span>
   );
 }
@@ -56,11 +57,11 @@ export function LandingPage() {
         <div className="lp-wrap lp-nav-in">
           <Link to="/" aria-label="XS Arena home"><Mark /></Link>
           <nav className="lp-links" aria-label="Sections">
-            <a href="#features">Features</a><a href="#start">Getting started</a>
+            <a href="#xs-ai">XS AI</a><a href="#features">Features</a><a href="#start">Getting started</a>
           </nav>
           <div className="row">
-            <Link className="btn ghost on-dark" to="/login">Sign in</Link>
-            <Cta className="btn primary on-dark hide-phone" />
+            <Link className="lp-signin" to="/login">Sign in</Link>
+            <Cta className="btn primary on-dark small-phone" />
           </div>
         </div>
       </header>
@@ -68,6 +69,7 @@ export function LandingPage() {
       <section className="lp-hero">
         <div className="lp-wrap">
           <div className="lp-hero-copy">
+            <a href="#xs-ai" className="lp-ai-pill rise" style={{ ['--d' as string]: '0ms' }}><AiOrb size={20} /> New: <b>XS AI</b> — just say it, in English or മലയാളം</a>
             <h1 className="rise" style={{ ['--d' as string]: '40ms' }}>Snooker, PS5, RC tracks. One app runs it all.</h1>
             <div className="lp-hero-side">
               <p className="rise" style={{ ['--d' as string]: '160ms' }}>
@@ -89,6 +91,31 @@ export function LandingPage() {
           <p><b>Keeps running offline</b>Timers don’t stop if the internet drops</p>
           <p><b>English and Malayalam</b>For customer messages on WhatsApp</p>
           <p><b>Each centre’s records kept separate</b>Only your own team sees your centre</p>
+        </div>
+      </section>
+
+      <section id="xs-ai" className="lp-section lp-ai">
+        <div className="lp-wrap lp-ai-in">
+          <div className="lp-ai-copy">
+            <p className="lp-ai-eyebrow"><AiOrb size={28} /> Meet XS AI</p>
+            <h2>Just say it. <span className="xsai-word">XS AI does the rest.</span></h2>
+            <p>Your centre’s own assistant, built into XS Arena. Speak or type in English or മലയാളം — start a table, add snacks, extend a game, or ask how today is going. Nothing happens until you tap OK.</p>
+            <ul className="ticks">
+              <li><Check size={18} /> <span><b>At the desk:</b> “Snooker 1 start 1 hour, 2 players”</span></li>
+              <li><Check size={18} /> <span><b>For owners:</b> “Today’s collection?” “Net profit this month?”</span></li>
+              <li><Check size={18} /> <span><b>Set up:</b> “4 pool, 2 snooker, 6 PS5” draws your first floor</span></li>
+              <li><Check size={18} /> <span>Answers come from your own numbers — no guessing, no extra cost</span></li>
+            </ul>
+          </div>
+          <div className="lp-ai-demo" aria-label="XS AI example conversation">
+            <div className="lp-ai-head"><AiOrb size={36} /> <b className="xsai-word">XS AI</b></div>
+            <p className="lp-ai-q">today’s collection?</p>
+            <div className="lp-ai-a"><span className="xsai-big">₹8,450</span><span className="xsai-sub">Today so far · 23 bills</span></div>
+            <p className="lp-ai-q">Snooker 1 start 1 hour, 2 players</p>
+            <div className="lp-ai-card"><span className="xsai-card-label">Needs your OK</span><b>Start Snooker 1 for 1h · 2 players</b>
+              <span className="lp-ai-btns"><span className="lp-ai-btn">Cancel</span><span className="lp-ai-btn ok"><Check size={16} /> OK, do it</span></span></div>
+            <div className="lp-ai-bar"><span className="lp-ai-mic"><Mic size={18} /></span><span className="muted">Ask or tell XS AI…</span><span className="lp-ai-send"><ArrowUp size={16} /></span></div>
+          </div>
         </div>
       </section>
 
@@ -118,6 +145,7 @@ export function LandingPage() {
               <li><Check size={18} /> Draw your floor and drop in your tables, consoles and tracks</li>
               <li><Check size={18} /> Add your prices and your team — and take the first walk-in</li>
             </ul>
+            <p className="lp-live-link">Your customers get their own booking page. <a href="/b/xs-arena-demo" target="_blank" rel="noreferrer">See a live booking page →</a></p>
           </div>
         </div>
       </section>

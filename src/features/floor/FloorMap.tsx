@@ -13,12 +13,14 @@ export type DragKind = { kind: 'resource' | 'fixture'; id: string; handle: 'move
 
 export function FloorMap({
   floor, resources, activities, mode, selectedId, onSelect, snapshotAt = 0, now = 0, showMoney = true, showNames = true,
-  editOutline = false, onDrag, onDragEnd, children, className,
+  editOutline = false, onDrag, onDragEnd, children, className, busyText, highlight,
 }: {
   floor: Floor; resources: Resource[]; activities: Activity[]; mode: Mode; selectedId?: string | null;
   onSelect?: (id: string | null, kind?: 'resource' | 'fixture') => void; snapshotAt?: number; now?: number; showMoney?: boolean; showNames?: boolean;
   editOutline?: boolean; onDrag?: (d: DragKind, x: number, y: number, dx: number, dy: number) => void; onDragEnd?: () => void;
   children?: ReactNode; className?: string;
+  /** Public views: show this instead of a timer on busy items (e.g. "Busy"). */ busyText?: string;
+  /** Public views: fade items that aren't this activity. */ highlight?: string | null;
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const p = `fm${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -76,7 +78,7 @@ export function FloorMap({
         const small = Math.min(r.w, r.h);
         const fs = Math.min(mode === 'tv' ? 56 : 40, Math.max(design ? 18 : mode === 'tv' ? 30 : 24, small * 0.16));
         const ring = Math.max(8, small * 0.035);
-        const main = design ? r.name : tone === 'off' ? 'Out of service' : s ? timerText(s, played) : 'Free';
+        const main = design ? r.name : tone === 'off' ? 'Out of service' : s ? (busyText ?? timerText(s, played)) : 'Free';
         const sub = !design && s && (showNames || showMoney)
           ? [showNames ? s.customer?.name?.split(' ')[0] : null, showMoney && s.cost_paise != null ? formatINR(s.cost_paise) : null, s.status === 'paused' ? 'Paused' : null].filter(Boolean).join(' · ')
           : '';
@@ -88,7 +90,7 @@ export function FloorMap({
         const chipW = Math.min(Math.max(r.w, r.h) * 0.92, longest + fs * 1.1);
         let ty = cy - chipH / 2 + fs * 0.25;
         return (
-          <g key={r.id} className={`fm-res tone-${tone} ${sel ? 'sel' : ''}`} transform={`rotate(${r.rotation} ${cx} ${cy})`}
+          <g key={r.id} className={`fm-res tone-${tone} ${sel ? 'sel' : ''} ${highlight && r.activity_id !== highlight ? 'fm-faded' : ''}`} transform={`rotate(${r.rotation} ${cx} ${cy})`}
             onPointerDown={design ? start({ kind: 'resource', id: r.id, handle: 'move' }) : (e) => { e.stopPropagation(); onSelect?.(r.id, 'resource'); }}
             role="button" aria-label={`${r.name}${!design ? `, ${tone}` : ''}`}>
             <g className={tone === 'off' && !design ? 'fm-dim' : undefined}>

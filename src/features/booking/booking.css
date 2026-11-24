@@ -45,7 +45,7 @@
   padding: 12px max(16px, calc((100vw - 560px) / 2 + 18px)) calc(12px + env(safe-area-inset-bottom));
   background: var(--paper); box-shadow: 0 -8px 30px rgb(0 0 0 / .12); }
 .book-bar > div { flex: 1; display: grid; gap: 2px; min-width: 0; }
-.book-bar b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.book-bar b { font-size: var(--t-md); }
 .book-bar .muted { font-size: var(--t-sm); }
 .book-bar .btn { min-width: 110px; }
 .book-summary { display: grid; gap: 4px; background: var(--paper-2); border-radius: var(--r); padding: 12px 14px; }
@@ -101,3 +101,12 @@
 
 .bookings-head { flex-wrap: wrap; gap: 10px; }
 .bookings-head h1 { flex: 1 0 auto; }
+
+/* UX fixes 24 Nov */
+.chips.fade-end { -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); padding-right: 32px; }
+@media (min-width: 720px) { .chips.fade-end { flex-wrap: wrap; -webkit-mask-image: none; mask-image: none; padding-right: 0; } }
+.slot { display: grid; place-items: center; line-height: 1.1; }
+.slot small { font-size: .7rem; font-weight: 600; text-decoration: none; display: block; }
+.field-error { color: var(--bad); font-weight: 600; }
+.ticket-facts .span-2 { grid-column: 1 / -1; }
+.book-live-head .btn { min-height: 36px; }

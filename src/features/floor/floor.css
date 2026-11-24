@@ -151,3 +151,5 @@
   .floor-stage { height: auto; padding: 6px; }
   .floor-stage .floor-map { height: auto; max-height: 70vh; }
 }
+
+.floor-map .fm-faded { opacity: .28; }
