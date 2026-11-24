@@ -36,8 +36,7 @@ export function useMyCentres() {
     queryKey: ['my-centres', session?.user.id],
     enabled: !!session,
     queryFn: async () => {
-      await supabase.rpc('claim_invites');
-      const { data, error } = await supabase.rpc('my_centres');
+      const { data, error } = await supabase.rpc('my_home');   // claims invites, then lists centres — one call
       if (error) throw error;
       return (data ?? []) as { centre_id: string; name: string; slug: string; role: Role; city: string | null }[];
     },
@@ -51,29 +50,17 @@ export function useCentreBySlug(slug: string | undefined) {
     queryKey: ['centre', slug, session?.user.id],
     enabled: !!slug && !!session,
     queryFn: async (): Promise<CentreContextValue | null> => {
-      const { data: centre, error } = await supabase.from('centres').select('*').eq('slug', slug!).maybeSingle();
+      // one call: centre + my staff row + subscription + permissions + features
+      const { data, error } = await supabase.rpc('centre_context', { p_slug: slug! });
       if (error) throw error;
-      if (!centre) return null;
-      const [staff, sub] = await Promise.all([
-        supabase.from('centre_staff').select('*').eq('centre_id', centre.id).eq('user_id', session!.user.id).single(),
-        supabase.from('centre_subscriptions').select('*').eq('centre_id', centre.id).maybeSingle(),
-      ]);
-      if (staff.error) throw staff.error;
-      const me = staff.data as Staff;
-      const subscription = (sub.data ?? null) as Subscription | null;
-      const plan: PlanCode = subscription?.plan ?? 'pro';
-      const [perms, feats] = await Promise.all([
-        supabase.from('role_permissions').select('permission').eq('role', me.role),
-        supabase.from('plan_features').select('feature').eq('plan', plan),
-      ]);
-      if (perms.error) throw perms.error;
-      if (feats.error) throw feats.error;
-      const permSet = new Set(perms.data.map((p) => p.permission as string));
-      const featureSet = new Set(feats.data.map((f) => f.feature as string));
+      if (!data) return null;
+      const ctx = data as { centre: Centre; me: Staff; subscription: Subscription | null; plan: PlanCode; permissions: string[]; features: string[] };
+      const permSet = new Set(ctx.permissions);
+      const featureSet = new Set(ctx.features);
       // Subscription billing is not live yet: an active centre can always work.
-      const canWrite = centre.status === 'active';
+      const canWrite = ctx.centre.status === 'active';
       return {
-        centre: centre as Centre, role: me.role, me, subscription, plan, canWrite,
+        centre: ctx.centre, role: ctx.me.role, me: ctx.me, subscription: ctx.subscription, plan: ctx.plan, canWrite,
         can: (p) => permSet.has(p), hasFeature: (f) => featureSet.has(f),
       };
     },

@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Smartphone, Sparkles, Square, Users, WifiOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { ReasonSheet, WhatsAppPairButton } from '../../components/centre';
 import { Empty, Field, Loading, Notice, Segmented, Sheet, useToast } from '../../components/ui';
@@ -18,7 +18,6 @@ import { formatINR } from '../../lib/money';
 import { currentPush, disablePush, enablePush, pushSupported } from '../../lib/push';
 import { rpc } from '../../lib/supabase';
 import { BillSheet, useKnownCustomer } from '../billing/BillSheet';
-import { AiSheet } from '../ai/AiSheet';
 import { CheckInSheet, SeatSheet } from '../booking/BookingsPage';
 import { durationLabel, type Booking } from '../booking/types';
 import { FloorMap, TONE_FILL } from './FloorMap';
@@ -42,11 +41,6 @@ export function FloorPage() {
   const [waiting, setWaiting] = useState(false);
   const [tabs, setTabs] = useState(false);
   const [checkIn, setCheckIn] = useState(false);
-  const [params, setParams] = useSearchParams();
-  const [ai, setAiState] = useState(() => params.get('ai') === '1');
-  const aiParam = params.get('ai') === '1';
-  useEffect(() => { if (aiParam) setAiState(true); }, [aiParam]);
-  const setAi = (v: boolean) => { setAiState(v); if (!v && params.has('ai')) { params.delete('ai'); setParams(params, { replace: true }); } };
   const [seat, setSeat] = useState<Parameters<typeof SeatSheet>[0]['data'] | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
@@ -93,7 +87,7 @@ export function FloorPage() {
           {count(['over']) > 0 && <span className="pill" style={{ background: 'var(--bad-bg)', color: 'var(--bad)' }}>{count(['over'])} time's up</span>}
         </div>
         <div className="row">
-          {hasFeature('xs_ai') && <button className="btn small" onClick={() => setAi(true)}><Sparkles size={16} /> XS AI</button>}
+          {hasFeature('xs_ai') && <Link className="btn small btn-ai" to={`/s/${centre.slug}/ai`}><Sparkles size={16} /> XS AI</Link>}
           <button className="btn small" onClick={() => setCheckIn(true)}><QrCode size={16} /> Check in</button>
           <button className="btn small" onClick={() => setWaiting(true)}><Users size={16} /> Waiting {data.waitlist.length ? `(${data.waitlist.length})` : ''}</button>
           <button className="btn small" onClick={() => setTabs(true)}><Receipt size={16} /> Open bills {data.open_tabs.length ? `(${data.open_tabs.length})` : ''}</button>
@@ -144,7 +138,6 @@ export function FloorPage() {
         onClose={() => setOpen(null)} onBill={(tab) => { setOpen(null); setBill(tab); }} />}
       {bill && <BillSheet tabId={bill} onClose={() => setBill(null)} />}
       {waiting && <WaitlistSheet data={data} onClose={() => setWaiting(false)} />}
-      {ai && <AiSheet data={data} onClose={() => setAi(false)} />}
       {checkIn && <CheckInSheet onClose={() => setCheckIn(false)} onFound={(c) => { setCheckIn(false); setSeat(c); }} />}
       {seat && <SeatSheet data={seat} onClose={() => setSeat(null)} />}
       {tabs && <OpenTabsSheet data={data} onClose={() => setTabs(false)} onOpen={(t) => { setTabs(false); setBill(t); }} />}

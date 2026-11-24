@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, Gift, IndianRupee, LayoutGrid, Package, Receipt, Search, Sparkles, Timer, UserPlus, Users, Wallet } from 'lucide-react';
+import { ChevronRight, Gift, IndianRupee, LayoutGrid, Package, Receipt, Search, Timer, UserPlus, Users, Wallet } from 'lucide-react';
+import { AiOrb } from '../ai/Orb';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { Loading, Notice, PushLink } from '../../components/ui';
@@ -57,9 +58,9 @@ export function Dashboard() {
       </nav>
 
       {hasFeature('xs_ai') && can('floor.operate') && (
-        <Link className="ai-ask" to={`${base}/floor?ai=1`}>
-          <span className="q-ico"><Sparkles size={20} /></span>
-          <span className="ai-ask-text"><b>Ask XS AI</b><span>“Today’s revenue?” · “Table 1 start 1 hour” · voice or type, English or മലയാളം</span></span>
+        <Link className="ai-ask" to={`${base}/ai`}>
+          <AiOrb size={44} />
+          <span className="ai-ask-text"><b><span className="xsai-word">Ask XS AI</span></b><span>“Today’s revenue?” · “Table 1 start 1 hour” · voice or type, English or മലയാളം</span></span>
           <ChevronRight size={18} />
         </Link>
       )}

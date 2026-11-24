@@ -1,0 +1,139 @@
+/* XS AI — Xelorsoft's assistant. Its own identity: violet → blue → cyan, a living orb, glass composer. */
+:root {
+  --xsai-1: #7B5CFF; --xsai-2: #2A78D6; --xsai-3: #1FC8E3;
+  --xsai-grad: linear-gradient(135deg, var(--xsai-1) 0%, var(--xsai-2) 55%, var(--xsai-3) 100%);
+  --xsai-soft: color-mix(in srgb, var(--xsai-1) 10%, var(--paper));
+  --xsai-ink: #5B3FE0;
+}
+:root[data-theme="dark"] { --xsai-soft: color-mix(in srgb, var(--xsai-1) 18%, var(--paper)); --xsai-ink: #B4A3FF; }
+
+/* ── The orb ── */
+.xsai-orb { position: relative; display: inline-block; flex: none; border-radius: 50%; isolation: isolate; }
+.xsai-orb::before { /* glow */
+  content: ''; position: absolute; inset: -18%; border-radius: 50%; background: var(--xsai-grad); filter: blur(14px); opacity: .45; z-index: -1;
+}
+.xsai-orb-core {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--xsai-1), var(--xsai-2), var(--xsai-3), #9D7BFF, var(--xsai-1));
+  animation: xsai-spin 9s linear infinite;
+}
+.xsai-orb-shine {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, rgb(255 255 255 / 85%) 0 8%, rgb(255 255 255 / 25%) 22%, transparent 48%),
+              radial-gradient(circle at 70% 78%, rgb(0 0 0 / 22%), transparent 55%);
+}
+.xsai-orb.is-thinking .xsai-orb-core { animation-duration: 1.6s; }
+.xsai-orb.is-listening::after {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--xsai-3); animation: xsai-pulse 1.2s ease-out infinite;
+}
+@keyframes xsai-spin { to { transform: rotate(360deg); } }
+@keyframes xsai-pulse { from { transform: scale(.9); opacity: .9; } to { transform: scale(1.35); opacity: 0; } }
+
+/* ── Page ── */
+.xsai { position: relative; display: flex; flex-direction: column; gap: 18px; min-height: calc(100dvh - 160px); max-width: 860px; margin: 0 auto; }
+.xsai-aurora {
+  position: absolute; inset: -40px 0 auto; height: 360px; z-index: -1; pointer-events: none;
+  background: radial-gradient(28% 50% at 32% 35%, color-mix(in srgb, var(--xsai-1) 22%, transparent), transparent),
+              radial-gradient(24% 45% at 72% 25%, color-mix(in srgb, var(--xsai-3) 20%, transparent), transparent);
+}
+.xsai-head { display: flex; align-items: center; gap: 14px; padding-top: 6px; }
+.xsai.is-empty .xsai-head { flex-direction: column; text-align: center; padding-top: 28px; gap: 16px; }
+.xsai-title { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.xsai-title h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.03em; line-height: 1.1; }
+.xsai.is-empty .xsai-title h1 { font-size: clamp(2.2rem, 7vw, 3rem); }
+.xsai-word { background: var(--xsai-grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; }
+.xsai-title p { margin: 0; color: var(--graphite); font-size: var(--t-sm); }
+.xsai.is-empty .xsai-title p { font-size: var(--t-base); max-width: 46ch; margin: 0 auto; }
+
+.xsai-suggest { display: grid; gap: 18px; }
+.xsai-suggest h2 { margin: 0 0 8px 2px; font-size: var(--t-sm); font-weight: 600; color: var(--graphite); text-transform: uppercase; letter-spacing: .06em; }
+.xsai-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.xsai-chip {
+  all: unset; box-sizing: border-box; cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; padding: 10px 16px;
+  border-radius: 999px; background: var(--paper); color: var(--ink); font-size: var(--t-sm); font-weight: 500;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xsai-1) 22%, transparent); transition: transform 120ms var(--ease-out), box-shadow 120ms;
+}
+.xsai-chip:hover { box-shadow: inset 0 0 0 1.5px var(--xsai-1); }
+.xsai-chip:active { transform: scale(.97); }
+.xsai-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.xsai-chip:disabled { opacity: .5; cursor: default; }
+
+/* ── Conversation ── */
+.xsai-chat { display: grid; gap: 16px; align-content: start; flex: 1; }
+.xsai-chat .ai-turn { display: grid; gap: 8px; }
+.xsai-chat .ai-q {
+  justify-self: end; max-width: 85%; margin: 0; padding: 10px 14px; border-radius: 18px 18px 6px 18px;
+  background: var(--xsai-grad); color: #fff; font-weight: 500;
+}
+.xsai-reply { display: flex; gap: 10px; align-items: flex-start; }
+.xsai-reply > .xsai-orb { margin-top: 4px; }
+.xsai-bubble {
+  display: grid; gap: 2px; max-width: 88%; padding: 12px 16px; border-radius: 6px 18px 18px 18px; background: var(--paper);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%); line-height: 1.45;
+}
+.xsai-bubble.ok { display: flex; gap: 8px; align-items: center; color: var(--ok); }
+.xsai-bubble.bad { color: var(--bad); display: flex; gap: 8px; align-items: center; }
+.xsai-big { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums;
+  background: var(--xsai-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.xsai-sub { color: var(--graphite); font-size: var(--t-sm); }
+.xsai-card {
+  display: grid; gap: 10px; padding: 14px 16px; border-radius: 18px; background: var(--paper); max-width: 92%;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--xsai-1) 55%, transparent), 0 8px 28px color-mix(in srgb, var(--xsai-1) 18%, transparent);
+}
+.xsai-card b { font-size: var(--t-md); }
+.xsai-card-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--xsai-ink); }
+.xsai-card .row { gap: 10px; flex-wrap: wrap; }
+.xsai-card .btn { min-height: 48px; }
+.xsai-ok { background: var(--xsai-grad); color: #fff; border: 0; }
+.xsai-ok:hover { filter: brightness(1.06); }
+.xsai-dots { display: inline-flex; gap: 5px; padding: 14px 16px; border-radius: 6px 18px 18px 18px; background: var(--paper); }
+.xsai-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--xsai-2); animation: xsai-dot 1s infinite ease-in-out; }
+.xsai-dots i:nth-child(2) { animation-delay: .15s; } .xsai-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes xsai-dot { 0%, 80%, 100% { opacity: .3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-4px); } }
+
+/* ── Composer ── */
+.xsai-bar {
+  position: sticky; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 5;
+  display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 86%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--xsai-1) 30%, transparent), 0 10px 30px rgb(0 0 0 / 12%);
+}
+.xsai-bar:focus-within { box-shadow: 0 0 0 2px var(--xsai-1), 0 10px 30px color-mix(in srgb, var(--xsai-1) 25%, transparent); }
+.xsai-mic, .xsai-send, .xsai-lang { all: unset; box-sizing: border-box; cursor: pointer; display: grid; place-items: center; flex: none; border-radius: 50%; }
+.xsai-mic { width: 52px; height: 52px; background: var(--xsai-grad); color: #fff; box-shadow: 0 6px 18px color-mix(in srgb, var(--xsai-1) 40%, transparent); }
+.xsai-mic.on { animation: xsai-mic 1.2s ease-in-out infinite; }
+@keyframes xsai-mic { 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--xsai-3) 25%, transparent); } }
+.xsai-input { all: unset; flex: 1; min-width: 0; font-size: 16px; padding: 0 6px; height: 44px; color: var(--ink); }
+.xsai-input::placeholder { color: var(--graphite); }
+.xsai-lang { width: 40px; height: 40px; font-weight: 700; font-size: .8rem; color: var(--xsai-ink); background: var(--xsai-soft); }
+.xsai-send { width: 44px; height: 44px; background: var(--ink); color: var(--paper); }
+.xsai-send:disabled { opacity: .25; cursor: default; }
+.xsai-mic:focus-visible, .xsai-send:focus-visible, .xsai-lang:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@media (min-width: 720px) {
+  .xsai { min-height: calc(100dvh - 60px); }
+  .xsai-bar { bottom: 16px; }
+}
+
+/* ── XS AI everywhere: menu item, floor button, floating button ── */
+.nav-ai svg { color: var(--xsai-3); }
+.sidebar a.nav-ai .nav-label { background: var(--xsai-grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; filter: brightness(1.35); }
+.tabbar a.nav-ai svg { color: var(--xsai-1); }
+.tabbar a.nav-ai span { color: var(--xsai-ink); font-weight: 600; }
+.btn-ai { background: var(--xsai-grad) !important; color: #fff !important; border: 0; box-shadow: 0 4px 14px color-mix(in srgb, var(--xsai-1) 35%, transparent); }
+.xsai-fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 40; display: none; align-items: center; gap: 10px; padding: 8px 18px 8px 8px;
+  border-radius: 999px; background: var(--paper); color: var(--ink); text-decoration: none; font-weight: 600;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--xsai-1) 35%, transparent), 0 12px 32px color-mix(in srgb, var(--xsai-1) 30%, transparent);
+  transition: transform 140ms var(--ease-out);
+}
+.xsai-fab:hover { transform: translateY(-2px); }
+.xsai-fab kbd { font: inherit; font-size: .72rem; color: var(--graphite); border: 1px solid var(--hair); border-radius: 6px; padding: 1px 6px; }
+@media (min-width: 720px) { .xsai-fab { display: inline-flex; } }
+@media print { .xsai-fab { display: none !important; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .xsai-orb-core, .xsai-orb.is-listening::after, .xsai-dots i, .xsai-mic.on { animation: none; }
+}
+/* keep the last content clear of the floating button */
+@media (min-width: 720px) { .shell:has(.xsai-fab) .main { padding-bottom: 104px; } }
+.ai-ask .xsai-word { background: none; color: var(--xsai-ink); }

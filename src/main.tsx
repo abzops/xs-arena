@@ -23,6 +23,7 @@ import { errorMessage } from './lib/errors';
 const BookPage = lazy(() => import('./features/booking/BookPage').then((m) => ({ default: m.BookPage })));
 const TicketPage = lazy(() => import('./features/booking/TicketPage').then((m) => ({ default: m.TicketPage })));
 const BookingsPage = lazy(() => import('./features/booking/BookingsPage').then((m) => ({ default: m.BookingsPage })));
+const AiPage = lazy(() => import('./features/ai/AiPage').then((m) => ({ default: m.AiPage })));
 const RcPage = lazy(() => import('./features/rc/RcPage').then((m) => ({ default: m.RcPage })));
 const DaySummaryPage = lazy(() => import('./features/owner/DaySummaryPage').then((m) => ({ default: m.DaySummaryPage })));
 const OffersPage = lazy(() => import('./features/owner/OffersPage').then((m) => ({ default: m.OffersPage })));
@@ -125,7 +126,7 @@ const router = createBrowserRouter(
         <Route path="/s/:slug" element={<CentreLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="floor" element={<Allow perm="floor.operate"><FloorPage /></Allow>} />
-          <Route path="ai" element={<Allow perm="floor.operate"><Navigate to="../floor?ai=1" replace /></Allow>} />
+          <Route path="ai" element={<Allow perm="floor.operate"><AiPage /></Allow>} />
           <Route path="bookings" element={<Allow perm="floor.operate"><BookingsPage /></Allow>} />
           <Route path="designer" element={<Allow perm="floor.design"><DesignerPage /></Allow>} />
           <Route path="prices" element={<Allow><PricesPage /></Allow>} />
