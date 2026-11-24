@@ -44,8 +44,10 @@ begin
   perform save_staff(c, null, 'Desk E', 'front_desk', null, null, 'desk.e@test.local');
   insert into t values ('c', c), ('t1', t1), ('snooker', snooker);
 
-  -- off by default: bills earn nothing
-  perform pg_temp.eq('defaults shown before saving', (loyalty_settings_get(c)->>'earn_points_per_100')::int, 10);
+  -- on from day one with the default rules (Abhinand, 24 Nov); when the owner turns it off, bills earn nothing
+  perform pg_temp.eq('loyalty on by default', (loyalty_settings_get(c)->>'enabled')::boolean, true);
+  perform pg_temp.eq('default rules', (loyalty_settings_get(c)->>'earn_points_per_100')::int, 10);
+  perform save_loyalty_settings(c, '{"enabled":false}');
   v := close_tab(c, pg_temp.game(c, t1, '9847100001'), 0, null, '[{"method":"cash","amount_paise":20000}]');
   perform pg_temp.eq('no points while off', (v->>'points_earned')::int, 0);
 

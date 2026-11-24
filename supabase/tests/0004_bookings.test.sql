@@ -44,7 +44,10 @@ begin
     jsonb_build_object('id', t1, 'activity_id', snooker, 'name', 'Table 1'),
     jsonb_build_object('id', t2, 'activity_id', snooker, 'name', 'Table 2'),
     jsonb_build_object('id', p1, 'activity_id', pool, 'name', 'Pool 1'))));
-  -- booking closed by default
+  -- online booking is on from day one (Abhinand, 24 Nov); the owner can turn it off
+  perform pg_temp.eq('booking on by default', (select booking_enabled from centres where id = c), true);
+  perform booking_page((select slug from centres where id = c));
+  perform save_booking_settings(c, '{"enabled":false}');
   perform pg_temp.expect_error(format('select booking_page(%L)', (select slug from centres where id = c)), 'not open');
   perform save_booking_settings(c, jsonb_build_object('enabled', true, 'activities',
     jsonb_build_array(jsonb_build_object('id', snooker, 'walkin_reserve', 1))));
