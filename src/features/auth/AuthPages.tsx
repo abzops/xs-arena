@@ -6,6 +6,7 @@ import { useAuth } from '../../app/auth';
 import { Collapse, Logo, Notice, Segmented, useToast } from '../../components/ui';
 import { errorMessage } from '../../lib/errors';
 import { DEMO_EMAIL, DEMO_MAILTO, SIGNUP_OPEN } from '../../lib/flags';
+import { isUsername, loginEmail } from '../../lib/staffLogin';
 import { rpc, supabase } from '../../lib/supabase';
 import './auth.css';
 
@@ -68,7 +69,8 @@ export function LoginPage() {
   const [params] = useSearchParams();
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>(params.get('mode') === 'signup' ? 'signup' : 'signin');
   const closed = mode === 'signup' && !SIGNUP_OPEN;
-  const [email, setEmail] = useState('');
+  // Staff logins arrive as /login?u=<username> from the WhatsApp message.
+  const [email, setEmail] = useState(params.get('u') ?? '');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +85,11 @@ export function LoginPage() {
     setBusy(true);
     try {
       if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-        if (error) throw error;
+        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail(email), password });
+        if (error) {
+          if (isUsername(email) && /Invalid login credentials/i.test(error.message)) throw new Error('Username or password is incorrect');
+          throw error;
+        }
       } else if (mode === 'signup') {
         if (password.length < 8) throw new Error('Password should be at least 8 characters');
         const { data, error } = await supabase.auth.signUp({
@@ -95,6 +100,7 @@ export function LoginPage() {
         if (error) throw error;
         if (!data.session) setSent(`Check ${email.trim()} for a confirmation link, then sign in.`);
       } else {
+        if (isUsername(email)) throw new Error('Staff passwords are reset by the centre owner. Ask them for a new one.');
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: appUrl() });
         if (error) throw error;
         setSent(`If ${email.trim()} has an account, a reset link is on its way.`);
@@ -141,7 +147,8 @@ export function LoginPage() {
             <Collapse open={mode === 'signup'}>
               <Row label="Your name" value={name} onChange={setName} autoComplete="name" tabIndex={mode === 'signup' ? 0 : -1} />
             </Collapse>
-            <Row label="Email" type="email" inputMode="email" value={email} onChange={setEmail} autoComplete="email" />
+            <Row label={mode === 'signin' ? 'Email or username' : 'Email'} type={mode === 'signin' ? 'text' : 'email'} inputMode="email"
+              value={email} onChange={setEmail} autoComplete={mode === 'signin' ? 'username' : 'email'} />
             <Collapse open={mode !== 'reset'}>
               <PasswordRow value={password} onChange={setPassword} tabIndex={mode !== 'reset' ? 0 : -1}
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
@@ -191,7 +198,26 @@ export function SetNewPassword() {
   );
 }
 
+/** Staff logins made by an owner can't start their own centre. With no centre left (turned off), say so plainly. */
 export function SetupCentre() {
+  const { session } = useAuth();
+  if (session?.user.app_metadata?.xs_staff_login) return <StaffNoAccess />;
+  return <SetupCentreForm />;
+}
+
+function StaffNoAccess() {
+  return (
+    <AuthLayout>
+      <div className="ios-titles">
+        <h1>No access right now</h1>
+        <p className="muted">Your login is turned off by the centre owner. Ask them to turn it back on.</p>
+      </div>
+      <button type="button" className="btn block" onClick={() => supabase.auth.signOut()}>Sign out</button>
+    </AuthLayout>
+  );
+}
+
+function SetupCentreForm() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [name, setName] = useState('');

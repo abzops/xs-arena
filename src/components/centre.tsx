@@ -150,7 +150,9 @@ export function waText(kind: WaKind, lang: Lang, f: WaFacts, centre: string) {
   }
 }
 
-export const waLink = (phone: string, text: string) => `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+/** wa.me needs the country code: a bare 10-digit Indian mobile gets 91 in front. */
+export const waNumber = (phone: string) => { const d = phone.replace(/\D/g, '').replace(/^0(?=\d{10}$)/, ''); return d.length === 10 ? `91${d}` : d; };
+export const waLink = (phone: string, text: string) => `https://wa.me/${waNumber(phone)}?text=${encodeURIComponent(text)}`;
 
 export function WhatsAppButton({ phone, kind, facts, label = 'WhatsApp', small = true }: {
   phone: string; kind: WaKind; facts: WaFacts; label?: string; small?: boolean;

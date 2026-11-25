@@ -15,7 +15,7 @@ export type Subscription = {
   centre_id: string; plan: PlanCode; status: 'trialing' | 'active' | 'past_due' | 'cancelled'; trial_ends_at: string; paid_until: string | null;
 };
 export type Staff = {
-  id: string; centre_id: string; user_id: string | null; role: Role; display_name: string; title: string | null; phone: string | null; email: string | null;
+  id: string; centre_id: string; user_id: string | null; role: Role; display_name: string; title: string | null; phone: string | null; email: string | null; username: string | null;
   color: string; sort: number; status: 'active' | 'inactive';
 };
 export type Customer = {
