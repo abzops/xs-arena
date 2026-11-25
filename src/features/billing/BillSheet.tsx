@@ -18,7 +18,8 @@ import '../floor/floor.css';
 export type TabPreview = {
   tab_id: string; status: string; customer: { id: string; name: string; phone: string } | null; opened_at: string; live: boolean;
   games: { session_id: string; resource: string; activity: string; minutes: number; started_at: string; ended_at: string | null; status: string;
-    players: number; lines: { label: string; amount_paise: number; overtime?: boolean }[]; amount_paise: number }[];
+    players: number; lines: { label: string; amount_paise: number; overtime?: boolean }[]; amount_paise: number;
+    planned_minutes?: number | null; charge_booked?: boolean }[];
   items: { id: string; name: string; qty: number; unit_price_paise: number; total_paise: number }[];
   subtotal_paise: number; gst_enabled: boolean; gst_rate_bp: number; prices_include_tax: boolean;
 };
@@ -105,6 +106,13 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
   const paying = payments.reduce((a, p) => a + p.amount_paise, 0);
   const cashGiven = parseINR(received) ?? 0;
 
+  // Customer left early on a timed game: staff choose time played (default) or the full booked time.
+  const booked = useMutation({
+    mutationFn: (v: { session: string; on: boolean }) => rpc('set_charge_booked', { p_centre: centre.id, p_session: v.session, p_on: v.on }),
+    onSuccess: async (_d, v) => { await refresh(); toast(v.on ? 'Charging the full booked time' : 'Charging the time played'); },
+    onError: (e) => toast(errorMessage(e)),
+  });
+
   const close = useMutation({
     mutationFn: () => rpc<{ bill_id: string; bill_no: string; points_earned?: number }>('close_tab', {
       p_centre: centre.id, p_tab: tabId, p_discount_paise: Math.max(0, disc), p_discount_reason: reason || null, p_payments: payments, p_key: key,
@@ -142,6 +150,13 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
                   <b>{g.resource}</b>
                   <span className="sub">{formatTime(g.started_at, centre.timezone)} → {g.ended_at ? formatTime(g.ended_at, centre.timezone) : 'now'} · {minutesLabel(g.minutes)}{g.players > 1 ? ` · ${g.players} players` : ''}</span>
                   {g.lines.map((l, i) => <span key={i} className="sub">{l.label} · {formatINR(l.amount_paise)}</span>)}
+                  {!!g.planned_minutes && g.status !== 'void' && (g.charge_booked || g.minutes < g.planned_minutes) && (
+                    <label className="check-row booked-choice">
+                      <input type="checkbox" checked={!!g.charge_booked} disabled={booked.isPending}
+                        onChange={(e) => booked.mutate({ session: g.session_id, on: e.target.checked })} />
+                      <span>Charge the full booked time ({minutesLabel(g.planned_minutes)}) — played {minutesLabel(g.minutes)}</span>
+                    </label>
+                  )}
                 </span>
                 <b className="num">{formatINR(g.amount_paise)}</b>
               </div>
