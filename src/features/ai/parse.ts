@@ -5,7 +5,7 @@
 
 export type Named = { id: string; name: string };
 export type Ctx = { resources: Named[]; products: Named[]; activities: Named[] };
-export type Metric = 'revenue_today' | 'customers_today' | 'bills_today' | 'best_game_today' | 'revenue_month' | 'expenses_month' | 'net_month' | 'busy_now';
+export type Metric = 'revenue_today' | 'customers_today' | 'bills_today' | 'best_game_today' | 'revenue_month' | 'expenses_month' | 'net_month' | 'busy_now' | 'games_today' | 'dues';
 export type Intent =
   | { type: 'start'; resource: Named; minutes: number | null; players: number | null }
   | { type: 'extend'; resource: Named; minutes: number }
@@ -69,12 +69,20 @@ export function parse(raw: string, ctx: Ctx): Intent {
   if (!t) return { type: 'unknown' };
 
   // ── questions (no action, no approval)
+  const question = /\?$/.test(raw.trim()) || /^(what|whats|how|who|which|when|show|tell|is|are|did|do|give me)\b/.test(t) || has(t, 'എത്ര', 'ആര്', 'ഏത്', 'എന്ത്');
+  // periods we can't answer yet: say so honestly instead of answering for "today"
+  if (question && has(t, 'week', 'yesterday', 'last month', 'year', 'ആഴ്ച', 'ഇന്നലെ')) {
+    return { type: 'unknown', reason: 'I can answer for today and this month for now. Try “today’s collection?” or “net profit this month”. For other days, open Day summary.' };
+  }
   const month = has(t, 'month', 'this month', 'മാസ');
   if (has(t, 'profit', 'net', 'ലാഭം')) return { type: 'ask', metric: 'net_month' };
   if (has(t, 'expense', 'expenses', 'spent', 'ചെലവ്', 'ചിലവ്')) return { type: 'ask', metric: 'expenses_month' };
   if (has(t, 'best', 'top', 'most', 'popular', 'കൂടുതൽ')) if (has(t, 'game', 'games', 'activity', 'കളി', 'ഗെയിം')) return { type: 'ask', metric: 'best_game_today' };
   if (has(t, 'revenue', 'sales', 'collection', 'income', 'earned', 'കളക്ഷൻ', 'വരുമാനം', 'കിട്ടി')) return { type: 'ask', metric: month ? 'revenue_month' : 'revenue_today' };
+  if (has(t, 'due', 'dues', 'pending', 'unpaid', 'balance', 'കിട്ടാനുള്ള', 'ബാക്കി')) return { type: 'ask', metric: 'dues' };
+  if (has(t, 'best customer', 'top customer', 'regular')) return { type: 'unknown', reason: 'I can’t rank customers yet. Open Customers to see who spends the most.' };
   if (has(t, 'customers', 'customer', 'people came', 'ആളുകൾ', 'കസ്റ്റമേഴ്സ്', 'കസ്റ്റമർ')) return { type: 'ask', metric: 'customers_today' };
+  if (has(t, 'how many games', 'games today', 'games played', 'how many played', 'എത്ര കളി')) return { type: 'ask', metric: 'games_today' };
   if (has(t, 'bills', 'how many bills', 'ബില്ല്')) return { type: 'ask', metric: 'bills_today' };
   if (has(t, 'waiting', 'waitlist', 'queue', 'കാത്തിരിക്കു', 'വെയിറ്റിംഗ്')) return { type: 'waiting' };
   if (has(t, 'free', 'available', 'empty', 'ഫ്രീ', 'ഒഴിവ്')) return { type: 'free' };
@@ -97,7 +105,11 @@ export function parse(raw: string, ctx: Ctx): Intent {
     const q = t.match(new RegExp(`(\\d+)\\s*(?:x\\s*)?${key(product.name).split(' ')[0]}`));
     return { type: 'add_item', resource, product, qty: q ? Math.min(parseInt(q[1], 10), 50) : 1 };
   }
-  if (!resource) return { type: 'unknown', reason: 'Say the table, console or track name, e.g. "Snooker 1 start 1 hour".' };
+  if (!resource) {
+    return question
+      ? { type: 'unknown', reason: 'I can answer: today’s collection, bills, games, dues, who’s waiting, what’s free, best game today, and this month’s sales, expenses and net profit.' }
+      : { type: 'unknown', reason: 'Say the table, console or track name, e.g. "Snooker 1 start 1 hour".' };
+  }
   if (has(t, 'extend', 'add', 'more', 'extra', 'കൂട്ട്', 'എക്സ്റ്റൻഡ്', 'കൂടി')) {
     const minutes = minutesIn(t.replace(key(resource.name), ' '));
     return minutes ? { type: 'extend', resource, minutes } : { type: 'unknown', reason: 'How many minutes? e.g. "extend 30 min".' };

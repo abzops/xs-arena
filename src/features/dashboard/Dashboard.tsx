@@ -118,7 +118,14 @@ export function Dashboard() {
           <h2>Today by game</h2>
           <ul className="ios-list">
             {Object.entries(s.by_activity_today).sort((a, b) => b[1] - a[1]).map(([k, v]) => <li key={k}><span>{k}</span><b className="num">{formatINR(v)}</b></li>)}
-            {s.snacks_today > 0 && <li><span>Snacks & extras</span><b className="num">{formatINR(s.snacks_today)}</b></li>}
+            {s.snacks_today > 0 && <li><span>Snacks & drinks</span><b className="num">{formatINR(s.snacks_today)}</b></li>}
+            {(() => {
+              // points, rewards and discounts come off the bill, not off each game: show them so the list adds up to Sales
+              const gross = Object.values(s.by_activity_today).reduce((t, v) => t + v, 0) + s.snacks_today;
+              const off = gross - s.revenue_today;
+              return off > 0 ? <li><span>Points & discounts</span><b className="num neg">−{formatINR(off)}</b></li> : null;
+            })()}
+            <li className="total"><span>Sales today</span><b className="num">{formatINR(s.revenue_today)}</b></li>
           </ul>
         </section>
       )}

@@ -95,3 +95,19 @@ describe('unknown', () => {
     expect(p('')).toEqual({ type: 'unknown' });
   });
 });
+
+describe('owner questions (24 Nov UX test)', () => {
+  const c = { resources: [{ id: 'r1', name: 'Snooker 1' }], products: [], activities: [{ id: 'a1', name: 'Snooker' }] };
+  it('answers dues and games today', () => {
+    expect(parse('show me dues', c)).toEqual({ type: 'ask', metric: 'dues' });
+    expect(parse('how many games today', c)).toEqual({ type: 'ask', metric: 'games_today' });
+  });
+  it('is honest about periods it cannot answer', () => {
+    const r = parse('which game earns most this week?', c);
+    expect(r.type).toBe('unknown');
+  });
+  it('gives question help, not command help, for unknown questions', () => {
+    const r = parse('what is the weather?', c);
+    expect(r.type === 'unknown' && r.reason).toMatch(/I can answer/);
+  });
+});

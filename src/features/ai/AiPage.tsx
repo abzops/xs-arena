@@ -107,6 +107,17 @@ function AiChat({ data }: { data: FloorState | undefined }) {
           return { text: `This month: sales ${formatINR(d.revenue_month)} − expenses ${formatINR(d.expenses_month)} = net ${formatINR(net)}.`,
             big: formatINR(net), sub: `Net this month · sales ${formatINR(d.revenue_month)} − expenses ${formatINR(d.expenses_month)}` };
         }
+        case 'dues': {
+          const dues = (d as Dash & { dues_paise?: number }).dues_paise ?? 0;
+          return dues > 0 ? { text: `${formatINR(dues)} still to collect.`, big: formatINR(dues), sub: 'Still to collect (part-paid and unpaid bills) · see Bills' } : { text: 'No dues. Every bill is paid.', big: '₹0', sub: 'No dues — every bill is paid' };
+        }
+        case 'games_today': {
+          try {
+            const day = await rpc<{ games: number }>('day_summary', { p_centre: centre.id, p_date: null });
+            const now = data.resources.filter((r) => r.session).length;
+            return { text: `${day.games} games finished today, ${now} playing now.`, big: String(day.games), sub: `games finished today · ${now} playing now` };
+          } catch { return { text: `${bills(d.bills_today)} today.`, big: String(d.bills_today), sub: 'bills today' }; }
+        }
         case 'busy_now': return { text: `${d.busy_now} of ${d.resources_total} playing now.`, big: `${d.busy_now} / ${d.resources_total}`, sub: 'playing now' };
         case 'best_game_today': {
           const by = d.by_activity_today;
@@ -123,7 +134,17 @@ function AiChat({ data }: { data: FloorState | undefined }) {
     const trimmed = q.trim();
     if (!trimmed) return;
     setText('');
-    const intent = parse(trimmed, ctx);
+    let intent = parse(trimmed, ctx);
+    if (data && (intent.type === 'start' || intent.type === 'extend' || intent.type === 'pause' || intent.type === 'resume' || intent.type === 'end')) {
+      const rid = intent.resource.id;
+      const r = data.resources.find((x) => x.id === rid);
+      const free = data.resources.filter((x) => x.status === 'active' && !x.session && x.activity_id === r?.activity_id && x.id !== r?.id).map((x) => x.name);
+      if (r && intent.type === 'start' && r.session) {
+        intent = { type: 'unknown', reason: `${r.name} is already playing.${free.length ? ` Free now: ${free.join(', ')}.` : ''}` };
+      } else if (r && ['extend', 'pause', 'resume', 'end'].includes(intent.type) && !r.session) {
+        intent = { type: 'unknown', reason: `${r.name} is free — there's no game to ${intent.type === 'end' ? 'stop' : intent.type}.` };
+      }
+    }
     const i = turns.length;
     setTurns((t) => [...t, { q: trimmed, intent }]);
     if (['ask', 'waiting', 'free'].includes(intent.type)) {

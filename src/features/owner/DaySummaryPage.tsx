@@ -51,8 +51,14 @@ export function DaySummaryPage() {
           <section className="card stack" aria-label="Things to check">
             <h2><AlertTriangle size={18} style={{ verticalAlign: -3 }} /> Things to check</h2>
             {s.alerts.length === 0 ? <p className="muted">Nothing unusual. No voids, big discounts, unpaid bills or cash differences.</p> : (
-              <ul className="list flush">{s.alerts.map((a, i) => (
-                <li key={i} className="item"><span className={`badge ${a.level}`}>{a.level === 'bad' ? 'Check now' : 'Look'}</span><span className="main-col"><span className="title" style={{ fontWeight: 500 }}>{a.text}</span></span></li>
+              <ul className="list flush">{groupAlerts(s.alerts).map((a, i) => (
+                <li key={i} className="item">
+                  <span className={`badge ${a.level}`}>{a.level === 'bad' ? 'Check now' : 'Note'}</span>
+                  <span className="main-col">
+                    <span className="title" style={{ fontWeight: 500 }}>{a.text}{a.count > 1 && <b> ×{a.count}</b>}</span>
+                    {a.times.length > 0 && <span className="sub">{a.times.join(', ')}</span>}
+                  </span>
+                </li>
               ))}</ul>
             )}
           </section>
@@ -63,6 +69,11 @@ export function DaySummaryPage() {
               <ul className="list flush">
                 {s.by_game.map((g) => <li key={g.name} className="item" style={{ justifyContent: 'space-between' }}><span>{g.name} <span className="muted">· {g.games}</span></span><b className="num">{formatINR(g.amount_paise)}</b></li>)}
                 {s.snacks_paise > 0 && <li className="item" style={{ justifyContent: 'space-between' }}><span>Snacks & drinks</span><b className="num">{formatINR(s.snacks_paise)}</b></li>}
+                {(() => {
+                  const off = s.by_game.reduce((t, g) => t + g.amount_paise, 0) + s.snacks_paise - s.revenue_paise;
+                  return off > 0 ? <li className="item" style={{ justifyContent: 'space-between' }}><span>Points & discounts</span><b className="num">−{formatINR(off)}</b></li> : null;
+                })()}
+                <li className="item" style={{ justifyContent: 'space-between', fontWeight: 700 }}><span>Sales</span><b className="num">{formatINR(s.revenue_paise)}</b></li>
               </ul>
             )}
             <p className="muted" style={{ fontSize: 'var(--t-sm)' }}>
@@ -75,4 +86,15 @@ export function DaySummaryPage() {
       )}
     </div>
   );
+}
+
+/** Same alert text on one row with a count and the times it happened. */
+function groupAlerts(alerts: { kind: string; level: string; text: string; at?: string }[]) {
+  const out: { level: string; text: string; count: number; times: string[] }[] = [];
+  for (const a of alerts) {
+    const t = a.at ? new Date(a.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : null;
+    const g = out.find((x) => x.text === a.text && x.level === a.level);
+    if (g) { g.count++; if (t) g.times.push(t); } else out.push({ level: a.level, text: a.text, count: 1, times: t ? [t] : [] });
+  }
+  return out;
 }
