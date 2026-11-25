@@ -109,7 +109,7 @@ export function Dashboard() {
         <PushLink className="stat" to={`${base}/team`}>
           <span className="st-label"><Users size={16} />Team</span>
           <span className="st-value num">{s.team_total}</span>
-          <span className="st-sub">active logins</span>
+          <span className="st-sub">team members</span>
         </PushLink>
       </section>
 

@@ -102,7 +102,7 @@ export function SettingsPage() {
                   <option value="1">Include GST</option><option value="0">Exclude GST (added on bill)</option></select></Field>
               </div>
             )}
-            <Field label="Bill number prefix" hint={`Next bill: ${(f.invoice_prefix || 'INV').toUpperCase()}-YYMM-${String(centre.invoice_seq + 1).padStart(4, '0')}`}>
+            <Field label="Bill number prefix" hint={`Next bill: ${(f.invoice_prefix || 'INV').toUpperCase()}-${new Date().toISOString().slice(2, 4)}${new Date().toISOString().slice(5, 7)}-${String(centre.invoice_seq + 1).padStart(4, '0')}`}>
               <input className="input" style={{ maxWidth: 180 }} value={f.invoice_prefix} onChange={set('invoice_prefix')} /></Field>
           </section>
           {save.error && <Notice tone="bad">{errorMessage(save.error)}</Notice>}

@@ -11,6 +11,7 @@ export type Intent =
   | { type: 'extend'; resource: Named; minutes: number }
   | { type: 'pause' | 'resume' | 'end'; resource: Named }
   | { type: 'add_item'; resource: Named; product: Named; qty: number }
+  | { type: 'status'; resource: Named }
   | { type: 'waiting' } | { type: 'free' }
   | { type: 'ask'; metric: Metric }
   | { type: 'layout'; counts: { activity: Named; count: number }[] }
@@ -22,14 +23,48 @@ const NUM_WORDS: Record<string, number> = {
   'പതിനഞ്ച്': 15, 'ഇരുപത്': 20, 'മുപ്പത്': 30,
 };
 
+// Malayalam-script names of games and units → the English words used in item names
+const ML_WORDS: [RegExp, string][] = [
+  // Table names written in Malayalam script map to the English names on the floor (Abhinand, 25 Nov).
+  [/സ്നൂക്കർ|സ്നൂക്കര്/g, 'snooker'], [/പൂൾ|പൂള്/g, 'pool'], [/പിഎസ്\s*5|പി എസ് 5|പിഎസ്/g, 'ps5'], [/ട്രാക്ക്/g, 'track'],
+  [/ഡ്രിഫ്റ്റ്/g, 'drift'], [/ടേബിൾ|ടേബിള്/g, 'table'], [/മിനിറ്റ്|മിനുട്ട്/g, 'min'], [/കോക്ക്|കോള/g, 'coke'],
+];
+// Manglish (Malayalam in English letters) action words
+const MANGLISH: [RegExp, string][] = [
+  [/\b(koode|kootu|kooti|kootti|kootanam|extend cheyyu|extend aakku)\b/g, 'extend'],
+  [/\b(thudangu|thudanguka|start aakku|start cheyyu)\b/g, 'start'],
+  [/\b(nirthu|nirthuka|stop aakku|theernnu)\b/g, 'stop'],
+  [/\b(minute|minit|minut)\b/g, 'min'], [/\b(manikkoor|mani)\b/g, 'hour'],
+];
+
 /** Lower-case, spoken number words → digits, "#"/punctuation removed, "ps 5" → "ps5". */
 export function normalize(text: string): string {
   let t = ` ${text.toLowerCase().replace(/[#,.!?।]/g, ' ').replace(/\s+/g, ' ')} `;
+  for (const [re, w] of ML_WORDS) t = t.replace(re, ` ${w} `);
+  for (const [re, w] of MANGLISH) t = t.replace(re, w);
   for (const [w, n] of Object.entries(NUM_WORDS)) t = t.replaceAll(` ${w} `, ` ${n} `).replaceAll(` ${w} `, ` ${n} `);
   t = t.replace(/\bps\s*(\d)\b/g, 'ps$1').replace(/\bplay ?station ?(\d)/g, 'ps$1').replace(/(\d)\s*(hrs?|hours?|mins?|minutes?)\b/g, '$1 $2');
   return t.replace(/\s+/g, ' ').trim();
 }
 const key = (name: string) => normalize(name).replace(/\s+/g, ' ');
+
+// Everyday names for snacks → words likely in the product name ("coke" → "Soft drink")
+const ALIASES: Record<string, string[]> = {
+  coke: ['coke', 'cola', 'soft drink', 'drink'], cola: ['cola', 'soft drink', 'drink'], pepsi: ['pepsi', 'cola', 'soft drink', 'drink'],
+  sprite: ['sprite', 'soft drink', 'drink'], fanta: ['fanta', 'soft drink', 'drink'], '7up': ['7up', 'soft drink', 'drink'],
+  'thums up': ['thums up', 'cola', 'soft drink', 'drink'], limca: ['limca', 'soft drink', 'drink'], soda: ['soda', 'soft drink', 'drink'],
+  water: ['water'], chips: ['chips', 'lays', 'snack'], lays: ['lays', 'chips'], tea: ['tea', 'chai'], chai: ['chai', 'tea'], coffee: ['coffee'],
+};
+function findProduct(text: string, products: Named[]): Named | null {
+  const direct = findIn(text, products);
+  if (direct) return direct;
+  for (const [alias, words] of Object.entries(ALIASES)) {
+    if (!new RegExp(`\\b${alias}\\b`).test(text)) continue;
+    for (const w of words) { const p = products.find((x) => key(x.name).includes(w)); if (p) return p; }
+  }
+  return null;
+}
+const aliasIn = (text: string) => Object.keys(ALIASES).find((a) => new RegExp(`\\b${a}\\b`).test(text)) ?? null;
 
 /** Best matching item: the longest item name found in the text; "table 3" matches the only item numbered 3 whose name is a table game. */
 function findIn<T extends Named>(text: string, items: T[], tableWord = false): T | null {
@@ -98,11 +133,16 @@ export function parse(raw: string, ctx: Ctx): Intent {
   if (counts.length >= 2 || (counts.length === 1 && has(t, 'layout', 'floor', 'ലേഔട്ട്'))) return { type: 'layout', counts };
 
   // ── actions on a table / console / track
-  const product = findIn(t, ctx.products);
-  const resource = findIn(product ? t.replace(key(product.name), ' ') : t, ctx.resources, true);
+  const product = findProduct(t, ctx.products);
+  const alias = aliasIn(t);
+  const resource = findIn(product ? t.replace(key(product.name), ' ').replace(alias ? new RegExp(`\\b${alias}\\b`) : /$^/, ' ') : t, ctx.resources, true);
+  // a question about one table ("what is pool 1 bill now?") is answered, never turned into an action
+  if (resource && question && !product) return { type: 'status', resource };
   if (product && (has(t, 'add', 'give', 'ചേർക്ക്', 'കൊടുക്ക്') || /^\d+ /.test(t))) {
     if (!resource) return { type: 'unknown', reason: `Which table gets the ${product.name}?` };
-    const q = t.match(new RegExp(`(\\d+)\\s*(?:x\\s*)?${key(product.name).split(' ')[0]}`));
+    // the number before the word the person said: "2 coke" (alias) or "2 soft drink" (product name)
+    const said = alias && !` ${t} `.includes(` ${key(product.name)} `) ? alias : key(product.name).split(' ')[0];
+    const q = t.match(new RegExp(`(\\d+)\\s*(?:x\\s*)?${said}`));
     return { type: 'add_item', resource, product, qty: q ? Math.min(parseInt(q[1], 10), 50) : 1 };
   }
   if (!resource) {
@@ -112,7 +152,13 @@ export function parse(raw: string, ctx: Ctx): Intent {
   }
   if (has(t, 'extend', 'add', 'more', 'extra', 'കൂട്ട്', 'എക്സ്റ്റൻഡ്', 'കൂടി')) {
     const minutes = minutesIn(t.replace(key(resource.name), ' '));
-    return minutes ? { type: 'extend', resource, minutes } : { type: 'unknown', reason: 'How many minutes? e.g. "extend 30 min".' };
+    if (minutes) return { type: 'extend', resource, minutes };
+    // "add 2 coke to pool 1" with no such snack: say which snacks exist instead of asking for minutes
+    if (has(t, 'add') && (alias || /\badd \d+ \w+/.test(t))) {
+      const names = ctx.products.slice(0, 6).map((p) => p.name).join(', ');
+      return { type: 'unknown', reason: `I don't have ${alias ? `“${alias}”` : 'that'} on the snack list.${names ? ` Snacks: ${names}.` : ''}` };
+    }
+    return { type: 'unknown', reason: 'How many minutes? e.g. "extend 30 min".' };
   }
   if (has(t, 'pause', 'hold', 'പോസ്')) return { type: 'pause', resource };
   if (has(t, 'resume', 'continue', 'unpause', 'തുടര്', 'റിസ്യൂം')) return { type: 'resume', resource };

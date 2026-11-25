@@ -11,6 +11,43 @@ import { project, rubberband, Spring, SPRING, VelocityTracker } from '../lib/spr
    pulled up, and on release hands the finger's velocity to the spring,
    projecting the flick to decide between settling and dismissing.
    Wider screens and reduced motion: a centred dialog with a short fade. */
+/** One shared history entry while any sheet is open, so the phone Back gesture closes the top sheet.
+ *  Swapping one sheet for another (table → bill) keeps the entry; it is removed only after the last sheet closes. */
+const sheetHistory = (() => {
+  const stack: (() => void)[] = [];
+  let pushed = false;
+  let pending: number | undefined;
+  const mark = () => { try { window.history.pushState({ ...(window.history.state ?? {}), xsSheet: true }, ''); pushed = true; } catch { /* ignore */ } };
+  const marked = () => !!(window.history.state as { xsSheet?: boolean } | null)?.xsSheet;
+  if (typeof window !== 'undefined') {
+    window.addEventListener('popstate', () => {
+      if (!pushed || marked()) return;
+      pushed = false;
+      const top = stack[stack.length - 1];
+      if (stack.length > 1) mark();       // more sheets below: keep Back working for them
+      top?.();
+    });
+  }
+  return {
+    open(close: () => void) {
+      stack.push(close);
+      if (pending) { clearTimeout(pending); pending = undefined; }
+      if (!pushed) mark();
+      return () => {
+        const i = stack.lastIndexOf(close);
+        if (i >= 0) stack.splice(i, 1);
+        if (stack.length || !pushed) return;
+        pending = window.setTimeout(() => {
+          pending = undefined;
+          if (stack.length || !pushed) return;
+          pushed = false;
+          if (marked()) window.history.back();   // closed from the app: drop our entry (unless the page moved on)
+        }, 80);
+      };
+    },
+  };
+})();
+
 export function Sheet({ title, onClose, onClosing, children, instant = false }: { title: string; onClose: () => void; onClosing?: () => void; children: ReactNode; instant?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const backdrop = useRef<HTMLDivElement>(null);
@@ -26,6 +63,7 @@ export function Sheet({ title, onClose, onClosing, children, instant = false }: 
   const done = useRef(false);
   const closeRequested = useRef(false);
   const height = () => ref.current?.offsetHeight || 600;
+  const openedAt = useRef(performance.now());
 
   const finish = useCallback(() => {
     if (done.current) return;
@@ -58,6 +96,9 @@ export function Sheet({ title, onClose, onClosing, children, instant = false }: 
     spring.current.to(0, SPRING.smooth);
     return () => spring.current?.stop();
   }, [physical]);
+
+  // Phone Back gesture: close the top sheet instead of leaving the page.
+  useEffect(() => sheetHistory.open(() => close()), [close]);
 
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
@@ -105,7 +146,7 @@ export function Sheet({ title, onClose, onClosing, children, instant = false }: 
   // view-transition stacking context.
   return createPortal(
     <div className={`overlay ${physical ? 'physical' : ''} ${closing ? 'closing' : ''}`}>
-      <div className="backdrop" ref={backdrop} onClick={() => close()} aria-hidden />
+      <div className="backdrop" ref={backdrop} onClick={() => { if (performance.now() - openedAt.current > 400) close(); }} aria-hidden />
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="sheet-grab" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
           <span className="handle" aria-hidden />

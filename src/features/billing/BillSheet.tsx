@@ -119,8 +119,14 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
     },
   });
 
+  // Closing without collecting keeps the bill open — say so, so it isn't forgotten.
+  const leave = () => {
+    if (!close.isSuccess && total > 0) toast(`${formatINR(total)} not collected yet — it's waiting in Open bills`);
+    onClose();
+  };
+
   return (
-    <Sheet title="Bill" onClose={onClose}>
+    <Sheet title="Bill" onClose={leave}>
       {tab.isPending ? <Loading rows={4} /> : tab.error ? <Notice tone="bad">{errorMessage(tab.error)}</Notice> : t && (
         <div className="stack lg">
           <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -226,10 +232,12 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
           )}
 
           {close.error && <Notice tone="bad">{errorMessage(close.error)}</Notice>}
+          <div className="bill-cta">
           <button className="btn primary block xl" disabled={close.isPending || (!t.games.length && !t.items.length) || disc < 0 || disc > sub || (disc > 0 && !reason.trim()) || paying > total}
             onClick={() => close.mutate()}>
             {close.isPending ? <span className="spinner" /> : mode === 'upi' ? `UPI received · close ${formatINR(total)}` : `Close bill · ${formatINR(total)}`}
           </button>
+          </div>
         </div>
       )}
       {custom && <CustomItemSheet onClose={() => setCustom(false)} onAdd={(name, price, qty) => addItem.mutateAsync({ name, price, qty }).then(() => setCustom(false))} />}

@@ -8,7 +8,7 @@ import { useCentre } from '../../app/centre';
 import { useToast } from '../../components/ui';
 import { command } from '../../lib/commands';
 import { errorMessage } from '../../lib/errors';
-import { uid, type FloorState } from '../../lib/floor';
+import { playedSeconds, uid, type FloorState } from '../../lib/floor';
 import { formatINR } from '../../lib/money';
 import { rpc, supabase } from '../../lib/supabase';
 import { useFloorState } from '../floor/useFloor';
@@ -86,6 +86,24 @@ function AiChat({ data }: { data: FloorState | undefined }) {
       const names = data.waitlist.map((w) => `${w.name ?? w.phone} (${data.activities.find((a) => a.id === w.activity_id)?.name ?? 'any'}, ${w.party_size})`).join(', ');
       return { text: `${data.waitlist.length} waiting: ${names}`, big: String(data.waitlist.length), sub: names };
     }
+    if (intent.type === 'status') {
+      const r = data.resources.find((x) => x.id === intent.resource.id);
+      const ses = r?.session;
+      if (!r) return { text: 'I can’t find that table.' };
+      if (r.status !== 'active') return { text: `${r.name} is out of service.` };
+      if (!ses) return { text: `${r.name} is free.`, big: 'Free', sub: r.name };
+      const played = Math.round(playedSeconds(ses, Date.parse(data.server_time), Date.now()) / 60);   // pauses excluded
+      let bill = ses.cost_paise ?? null;
+      if (ses.tab_id) {
+        try { bill = (await rpc<{ subtotal_paise: number }>('tab_preview', { p_centre: centre.id, p_tab: ses.tab_id })).subtotal_paise; } catch { /* keep game cost */ }
+      }
+      const who = ses.customer?.name ? ` · ${ses.customer.name}` : '';
+      const left = ses.planned_minutes ? ses.planned_minutes - played : null;
+      const timeTxt = left === null ? `playing ${played} min` : left >= 0 ? `${left} min left` : `${-left} min over time`;
+      return bill != null
+        ? { text: `${r.name}: ${timeTxt}, ${formatINR(bill)} so far.`, big: formatINR(bill), sub: `${r.name} so far · ${timeTxt}${who}` }
+        : { text: `${r.name}: ${timeTxt}.`, big: r.name, sub: `${timeTxt}${who}` };
+    }
     if (intent.type === 'free') {
       const free = data.resources.filter((r) => r.status === 'active' && !r.session);
       return free.length ? { text: `Free now: ${free.map((r) => r.name).join(', ')}.`, big: `${free.length} free`, sub: free.map((r) => r.name).join(' · ') } : { text: 'Everything is busy right now.' };
@@ -147,7 +165,7 @@ function AiChat({ data }: { data: FloorState | undefined }) {
     }
     const i = turns.length;
     setTurns((t) => [...t, { q: trimmed, intent }]);
-    if (['ask', 'waiting', 'free'].includes(intent.type)) {
+    if (['ask', 'waiting', 'free', 'status'].includes(intent.type)) {
       setThinking(true);
       try { update(i, { answer: await answer(intent), done: 'ok' }); } catch (e) { update(i, { answer: { text: errorMessage(e) }, done: 'error' }); }
       finally { setThinking(false); }
@@ -278,7 +296,7 @@ function AiReply({ turn, canDesign, busy, onApprove, onCancel }: { turn: Turn; c
   const it = turn.intent;
   const a = turn.answer;
   if (it.type === 'unknown') return <div className="ai-a xsai-bubble">{it.reason ?? "I didn't get that. Try something like “Pool 1 start 1 hour” or “today's collection?”."}</div>;
-  if (['ask', 'waiting', 'free'].includes(it.type)) {
+  if (['ask', 'waiting', 'free', 'status'].includes(it.type)) {
     if (!a) return <span className="xsai-dots" aria-label="Thinking"><i /><i /><i /></span>;
     return (
       <div className={`ai-a xsai-bubble ${turn.done === 'error' ? 'bad' : ''}`}>

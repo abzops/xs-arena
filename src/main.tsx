@@ -21,6 +21,7 @@ import { LandingPage } from './features/landing/LandingPage';
 import { errorMessage } from './lib/errors';
 
 const BookPage = lazy(() => import('./features/booking/BookPage').then((m) => ({ default: m.BookPage })));
+const ReceiptPublic = lazy(() => import('./features/billing/ReceiptPublic').then((m) => ({ default: m.ReceiptPublic })));
 const TicketPage = lazy(() => import('./features/booking/TicketPage').then((m) => ({ default: m.TicketPage })));
 const BookingsPage = lazy(() => import('./features/booking/BookingsPage').then((m) => ({ default: m.BookingsPage })));
 const AiPage = lazy(() => import('./features/ai/AiPage').then((m) => ({ default: m.AiPage })));
@@ -121,6 +122,7 @@ const router = createBrowserRouter(
       <Route path="/tv" element={<Suspense fallback={<Splash />}><TvPage /></Suspense>} />
       <Route path="/b/:slug" element={<Suspense fallback={<Splash />}><BookPage /></Suspense>} />
       <Route path="/t/:token" element={<Suspense fallback={<Splash />}><TicketPage /></Suspense>} />
+      <Route path="/r/:token" element={<Suspense fallback={<Splash />}><ReceiptPublic /></Suspense>} />
       <Route element={<RequireAuth />}>
         <Route path="/setup" element={<SetupCentre />} />
         <Route path="/s/:slug" element={<CentreLayout />}>
@@ -142,7 +144,7 @@ const router = createBrowserRouter(
           <Route path="expenses" element={<Allow perm="expenses.manage"><ExpensesPage /></Allow>} />
           <Route path="team" element={<Allow><TeamPage /></Allow>} />
           <Route path="settings" element={<Allow><SettingsPage /></Allow>} />
-          <Route path="*" element={<Empty title="Page not found" />} />
+          <Route path="*" element={<Empty title="Page not found"><Link className="btn primary" to="..">Go to Home</Link></Empty>} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

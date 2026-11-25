@@ -78,7 +78,7 @@ export function FloorMap({
         const small = Math.min(r.w, r.h);
         const fs = Math.min(mode === 'tv' ? 56 : 40, Math.max(design ? 18 : mode === 'tv' ? 30 : 24, small * 0.16));
         const ring = Math.max(8, small * 0.035);
-        const main = design ? r.name : tone === 'off' ? 'Out of service' : s ? (busyText ?? timerText(s, played)) : 'Free';
+        const main = design ? r.name : tone === 'off' ? 'Out of service' : s ? (busyText ?? `${timerText(s, played)}${s.planned_minutes ? (s.planned_minutes * 60 - played >= 0 ? ' left' : ' over') : ''}`) : 'Free';
         const sub = !design && s && (showNames || showMoney)
           ? [showNames ? s.customer?.name?.split(' ')[0] : null, showMoney && s.cost_paise != null ? formatINR(s.cost_paise) : null, s.status === 'paused' ? 'Paused' : null].filter(Boolean).join(' · ')
           : '';
@@ -91,7 +91,8 @@ export function FloorMap({
         let ty = cy - chipH / 2 + fs * 0.25;
         return (
           <g key={r.id} className={`fm-res tone-${tone} ${sel ? 'sel' : ''} ${highlight && r.activity_id !== highlight ? 'fm-faded' : ''}`} transform={`rotate(${r.rotation} ${cx} ${cy})`}
-            onPointerDown={design ? start({ kind: 'resource', id: r.id, handle: 'move' }) : (e) => { e.stopPropagation(); onSelect?.(r.id, 'resource'); }}
+            onPointerDown={design ? start({ kind: 'resource', id: r.id, handle: 'move' }) : (e) => e.stopPropagation()}
+            onClick={design ? undefined : (e) => { e.stopPropagation(); onSelect?.(r.id, 'resource'); }}
             role="button" aria-label={`${r.name}${!design ? `, ${tone}` : ''}`}>
             <g className={tone === 'off' && !design ? 'fm-dim' : undefined}>
               <ItemArt r={r} a={a} busy={!design && !!s} glow={colour} p={p} />

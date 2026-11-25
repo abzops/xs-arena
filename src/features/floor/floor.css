@@ -153,3 +153,13 @@
 }
 
 .floor-map .fm-faded { opacity: .28; }
+
+.floor-stage { position: relative; }
+.floor-empty { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; pointer-events: none; }
+.floor-empty > * { pointer-events: auto; }
+
+/* Bill sheet: the Close bill button (with the total) stays in reach while scrolling */
+.bill-cta { position: sticky; bottom: calc(-22px - env(safe-area-inset-bottom)); z-index: 3; margin: 0 -18px calc(-22px - env(safe-area-inset-bottom));
+  padding: 12px 18px calc(16px + env(safe-area-inset-bottom)); background: var(--paper); box-shadow: 0 -8px 20px rgb(0 0 0 / 8%); }
+.shift-nudge { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 8px 8px 14px; margin-bottom: 10px;
+  border-radius: 14px; background: var(--warn-bg); color: var(--warn); font-size: var(--t-sm); font-weight: 500; }

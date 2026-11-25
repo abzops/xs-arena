@@ -44,7 +44,8 @@ describe('table actions', () => {
     expect(p('pool 1 stop')).toMatchObject({ type: 'end', resource: { id: 'p1' } });
   });
   it('Malayalam / Manglish commands', () => {
-    expect(p('സ്നൂക്കർ 1 സ്റ്റാർട്ട്')).toMatchObject({ type: 'unknown' }); // table names must match what is on the floor
+    // Malayalam-script table names now map to the floor names (rule changed with Abhinand's OK, 25 Nov)
+    expect(p('സ്നൂക്കർ 1 സ്റ്റാർട്ട്')).toMatchObject({ type: 'start', resource: { id: 's1' } });
     expect(p('snooker 1 തുടങ്ങ് ഒരു മണിക്കൂർ')).toMatchObject({ type: 'start', resource: { id: 's1' }, minutes: 60 });
     expect(p('ps5 2 അര മണിക്കൂർ കൂട്ട്')).toMatchObject({ type: 'extend', resource: { id: 'x2' }, minutes: 30 });
     expect(p('pool 1 നിർത്ത്')).toMatchObject({ type: 'end', resource: { id: 'p1' } });
@@ -109,5 +110,33 @@ describe('owner questions (24 Nov UX test)', () => {
   it('gives question help, not command help, for unknown questions', () => {
     const r = parse('what is the weather?', c);
     expect(r.type === 'unknown' && r.reason).toMatch(/I can answer/);
+  });
+});
+
+describe('front desk (25 Nov tablet test)', () => {
+  const c = {
+    resources: [{ id: 'p1', name: 'Pool 1' }, { id: 'p2', name: 'Pool 2' }, { id: 's1', name: 'Snooker 1' }],
+    products: [{ id: 'sd', name: 'Soft drink' }, { id: 'w', name: 'Water bottle' }],
+    activities: [{ id: 'a1', name: 'Pool' }],
+  };
+  it('a question about a table is answered, never turned into "stop"', () => {
+    expect(parse('what is pool 1 bill now', c)).toEqual({ type: 'status', resource: { id: 'p1', name: 'Pool 1' } });
+    expect(parse('pool 1 bill?', c).type).toBe('status');
+  });
+  it('still stops when told to', () => {
+    expect(parse('pool 1 stop and bill', c).type).toBe('end');
+  });
+  it('understands everyday snack names', () => {
+    expect(parse('add 2 coke to pool 1', c)).toEqual({ type: 'add_item', resource: { id: 'p1', name: 'Pool 1' }, product: { id: 'sd', name: 'Soft drink' }, qty: 2 });
+    expect(parse('add 1 water to snooker 1', c)).toMatchObject({ type: 'add_item', product: { id: 'w' } });
+  });
+  it('says which snacks exist instead of asking for minutes', () => {
+    const r = parse('add 2 burger to pool 1', { ...c, products: [{ id: 'sd', name: 'Soft drink' }] });
+    expect(r.type === 'unknown' && r.reason).toMatch(/snack/i);
+  });
+  it('Manglish and Malayalam-script table names', () => {
+    expect(parse('pool 2 30 min koode kootu', c)).toEqual({ type: 'extend', resource: { id: 'p2', name: 'Pool 2' }, minutes: 30 });
+    expect(parse('പൂൾ 2 30 മിനിറ്റ് കൂട്ട്', c)).toEqual({ type: 'extend', resource: { id: 'p2', name: 'Pool 2' }, minutes: 30 });
+    expect(parse('snooker 1 thudangu 1 hour', c)).toMatchObject({ type: 'start', resource: { id: 's1' }, minutes: 60 });
   });
 });

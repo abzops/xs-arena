@@ -1,6 +1,6 @@
 // Live floor: every table, console and track with live timers. Tap one to start, pause, extend, move, bill.
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Smartphone, Sparkles, Square, Users, WifiOff, X } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Smartphone, Sparkles, Users, WifiOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
@@ -30,6 +30,7 @@ const SOUND_KEY = 'xs-arena-alert-sound';
 
 export function FloorPage() {
   const { centre, can, hasFeature } = useCentre();
+  const shift = useQuery({ queryKey: ['shift', centre.id], queryFn: () => rpc<{ id: string } | null>('current_shift', { p_centre: centre.id }), refetchInterval: 60_000 });
   const state = useFloorState();
   const now = useNow();
   const pending = usePendingCommands();
@@ -77,6 +78,12 @@ export function FloorPage() {
 
   return (
     <div className="floor-page">
+      {shift.isSuccess && !shift.data && (
+        <div className="shift-nudge" role="status">
+          <span>No shift is open — cash taken now isn't counted in a drawer.</span>
+          <Link className="btn small" to={`/s/${centre.slug}/shift`}>Open shift</Link>
+        </div>
+      )}
       {(!online || pending > 0) && (
         <div className="offline-bar"><Notice tone="warn"><WifiOff size={16} style={{ verticalAlign: -3 }} /> {online ? `Sending ${pending} saved action${pending === 1 ? '' : 's'}…` : `Offline. Timers keep running${pending ? `; ${pending} action${pending === 1 ? '' : 's'} will sync` : ''}.`}</Notice></div>
       )}
@@ -103,6 +110,12 @@ export function FloorPage() {
       {view === 'map' ? (
         <>
           <div className="floor-stage">
+            {data.resources.every((r) => r.floor_id !== floor.id) && (
+              <div className="floor-empty">
+                <b>Nothing on {floor.name} yet</b>
+                {can('floor.design') ? <Link className="btn small primary" to={`/s/${centre.slug}/designer`}>Add tables in the floor designer</Link> : <span className="muted">The owner can add tables in the floor designer.</span>}
+              </div>
+            )}
             <FloorMap floor={floor} resources={data.resources.filter((r) => r.floor_id === floor.id)} activities={data.activities} mode="live"
               snapshotAt={state.snapshotAt} now={now} onSelect={(id) => id && setOpen(id)} />
           </div>
@@ -182,7 +195,7 @@ function ResCard({ r, snapshotAt, now, onOpen, freeUntil }: { r: Resource; snaps
   const tone = toneOf(r, played);
   return (
     <button className={`res-card tone-${tone}`} style={{ background: TONE_FILL[tone] }} onClick={onOpen} aria-label={`${r.name}, ${TONE_LABEL[tone]}`}>
-      <span className="rc-top"><span>{r.name}</span><span>{TONE_LABEL[tone]}</span></span>
+      <span className="rc-top"><span>{r.name}</span><span>{tone === 'free' ? '' : s ? (s.planned_minutes ? (s.planned_minutes * 60 - played >= 0 ? 'Time left' : 'Over time') : 'Played') : TONE_LABEL[tone]}</span></span>
       <span className="rc-timer">{tone === 'off' ? '—' : s ? timerText(s, played) : 'Free'}</span>
       <span className="rc-sub">
         <span>{s ? [s.customer?.name?.split(' ')[0], `${s.players} pl`].filter(Boolean).join(' · ') : freeUntil ? `Free until ${freeUntil}` : `Up to ${r.capacity} players`}</span>
@@ -365,14 +378,14 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
         <div className="res-card" style={{ background: TONE_FILL[tone], cursor: 'default' }}>
           <span className="rc-top"><span>{TONE_LABEL[tone]}</span><span>Started {formatTime(s.started_at, centre.timezone)}</span></span>
           <span className="rc-timer">{timerText(s, played)}</span>
-          <span className="rc-sub"><span>{s.planned_minutes ? `${minutesLabel(s.planned_minutes)} booked · played ${clock(played)}` : 'Open timer'}</span>
+          <span className="rc-sub"><span>{s.planned_minutes ? `${minutesLabel(s.planned_minutes)} booked · played ${clock(played)}` : `No time limit · played ${clock(played)}`}</span>
             <span className="num">{s.cost_paise != null ? formatINR(s.cost_paise) : ''}</span></span>
         </div>
         {s.customer && (
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span><b>{s.customer.name}</b> <span className="muted">{s.customer.phone}</span></span>
             {s.customer.phone && (
-              <WhatsAppPairButton phone={s.customer.phone} name={s.customer.name} label={left !== null && left <= 300 ? 'Time-up msg' : 'Start msg'}
+              <WhatsAppPairButton phone={s.customer.phone} name={s.customer.name} label={left !== null && left <= 300 ? 'WhatsApp: time up' : 'WhatsApp: started'}
                 texts={left !== null && left <= 300 && endsAt
                   ? msgTimeUp({ name: s.customer.name, centre: centre.name, resource: r.name, endsAt, tz: centre.timezone })
                   : msgStarted({ name: s.customer.name, centre: centre.name, resource: r.name, startedAt: s.started_at, tz: centre.timezone, planned: s.planned_minutes, price: priceSummary(rc) })} />
@@ -381,7 +394,7 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
         )}
 
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <span>Players</span>
+          <span>{a?.kind === 'track' ? 'Cars' : 'Players'}</span>
           <span className="row">
             <button className="btn small icon-btn" aria-label="Fewer players" disabled={s.players <= 1 || run.isPending} onClick={() => go('set_session_players', { p_players: s.players - 1 })}>−</button>
             <b className="num" style={{ minWidth: 24, textAlign: 'center' }}>{s.players}</b>
@@ -399,13 +412,13 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
           </div>
         )}
 
-        <div className="field"><span>Add time</span>
+        {s.planned_minutes ? <div className="field"><span>Add time</span>
           <div className="chips">
             {(rc?.billing_mode === 'per_slot' ? [rc.slot_minutes, rc.slot_minutes * 2] : [15, 30, 60]).map((m) => (
               <button key={m} className="chip" disabled={run.isPending} onClick={() => extend(m)}>+{minutesLabel(m)}</button>
             ))}
           </div>
-        </div>
+        </div> : <p className="muted" style={{ margin: 0 }}>No time limit — the game runs until you tap End &amp; bill.</p>}
         {blocked && (
           <Notice tone="warn">
             <b>{a?.name ?? 'This game'} is booked{blocked.booked_at ? ` from ${formatTime(blocked.booked_at, centre.timezone)}` : ''}.</b>{' '}
@@ -433,7 +446,7 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
             await refresh();
             if (res === undefined) return;
             if (res && s.tab_id) onBill(s.tab_id); else { toast('Game ended (will sync)'); onClose(); }
-          }}><Square size={16} /> End & bill</button>
+          }}><Receipt size={16} /> End & bill</button>
         </div>
         {can('billing.void') && <button className="btn ghost danger" style={{ justifySelf: 'start' }} onClick={() => setVoiding(true)}>Cancel game (started by mistake)</button>}
       </div>
@@ -444,8 +457,8 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
           ))}</div>
         </Sheet>
       )}
-      {voiding && <ReasonSheet title="Cancel game" confirmLabel="Cancel game" onClose={() => setVoiding(false)}
-        warning={`The game on ${r.name} will be removed from the bill and nothing is charged for it. The owner can see who cancelled it and why.`}
+      {voiding && <ReasonSheet title="Remove this game?" confirmLabel="Yes, remove game" onClose={() => setVoiding(false)}
+        warning={`The game on ${r.name} will be removed from the bill and nothing is charged for it. It shows in Day summary with your name and reason.`}
         onConfirm={async (reason) => { await rpc('void_session', { p_centre: centre.id, p_session: s.id, p_reason: reason }); await refresh(); toast('Game cancelled'); onClose(); }} />}
     </Sheet>
   );
@@ -490,7 +503,7 @@ function StartSheet({ r, a, data, onClose, fromWait }: { r: Resource; a: Activit
         )}
         <div className="grid-2">
           <Field label="Mobile (for receipt & points)" hint={known ? `${known.full_name} · ${known.visit_count} visit${known.visit_count === 1 ? '' : 's'}` : 'Optional'}>
-            <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98470 12345" autoFocus /></Field>
+            <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile (optional)" autoFocus={window.matchMedia('(pointer: fine)').matches} /></Field>
           {!known && <Field label="Name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" /></Field>}
         </div>
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -503,11 +516,11 @@ function StartSheet({ r, a, data, onClose, fromWait }: { r: Resource; a: Activit
         </div>
         <div className="field"><span>Time</span>
           <div className="chips">
-            {!slot && <button type="button" className="chip" aria-pressed={time === null} onClick={() => setTime(null)}>Open timer</button>}
+            {!slot && <button type="button" className="chip" aria-pressed={time === null} onClick={() => setTime(null)}>No limit</button>}
             {times.map((m) => <button type="button" key={m} className="chip" aria-pressed={time === m} onClick={() => setTime(m)}>{minutesLabel(m)}</button>)}
           </div></div>
         {data.open_tabs.length > 0 && (
-          <Field label="Add to an open bill (group)"><select className="input" value={tab} onChange={(e) => setTab(e.target.value)}>
+          <Field label="Same group as" hint="Put this game on another table’s bill"><select className="input" value={tab} onChange={(e) => setTab(e.target.value)}>
             <option value="">New bill</option>
             {data.open_tabs.map((t) => <option key={t.id} value={t.id}>{t.label}{t.customer ? ` · ${t.customer}` : ''}</option>)}</select></Field>
         )}

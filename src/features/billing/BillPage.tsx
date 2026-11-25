@@ -18,7 +18,7 @@ import '../floor/floor.css';
 
 type Bill = {
   id: string; bill_no: string; created_at: string; status: string; subtotal_paise: number; discount_paise: number; discount_reason: string | null;
-  tax_paise: number; gst_rate_bp: number; total_paise: number; paid_paise: number; void_reason: string | null; points_redeemed: number; points_paise: number;
+  tax_paise: number; gst_rate_bp: number; total_paise: number; paid_paise: number; void_reason: string | null; points_redeemed: number; points_paise: number; share_token?: string | null;
   lines: { games: (ReceiptGame & { players: number })[]; items: (ReceiptItem & { unit_price_paise: number })[] };
   customers: { id: string; full_name: string; phone: string } | null;
   payments: { id: string; method: Method; amount_paise: number; status: string; created_at: string }[];
@@ -56,7 +56,8 @@ export function BillPage() {
   const due = b.status === 'void' ? 0 : b.total_paise - b.paid_paise;
   const okPays = b.payments.filter((p) => p.status === 'ok');
   const methods = [...new Set(okPays.map((p) => METHOD_LABEL[p.method]))].join(' + ');
-  const link = `${window.location.origin}/s/${centre.slug}/bills/${b.id}`;
+  // the customer's link opens a public receipt (no login); staff link only as a fallback
+  const link = b.share_token ? `${window.location.origin}/r/${b.share_token}` : `${window.location.origin}/s/${centre.slug}/bills/${b.id}`;
   const wa = b.customers ? msgReceipt({
     name: b.customers.full_name, centre: centre.name, billNo: b.bill_no, tz, games: b.lines.games, items: b.lines.items, discount: b.discount_paise,
     tax: b.tax_paise, total: b.total_paise,
@@ -70,6 +71,7 @@ export function BillPage() {
         <div className="row">
           {wa && b.customers && <WhatsAppPairButton phone={b.customers.phone} name={b.customers.full_name} texts={wa} label="Send receipt" small={false} />}
           <button className="btn" onClick={() => window.print()}><Printer size={18} /> Print</button>
+          {can('floor.operate') && <BackLink className="btn primary" to={`/s/${centre.slug}/floor`}>Back to floor</BackLink>}
         </div>
       </div>
 

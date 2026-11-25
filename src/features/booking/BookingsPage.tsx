@@ -193,9 +193,9 @@ export function CheckInSheet({ onClose, onFound }: { onClose: () => void; onFoun
         ) : canScan && (
           <button type="button" className="btn block xl" onClick={() => setScanning(true)}><Camera size={20} /> Scan QR</button>
         )}
-        <Field label="Or type the 6-letter code">
+        <Field label={canScan ? "Or type the 6-letter code" : "Booking code (6 letters on the ticket)"}>
           <input className="input code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
-            placeholder="RKVDYQ" autoCapitalize="characters" autoComplete="off" autoFocus={!canScan} inputMode="text" aria-label="Booking code" />
+            placeholder="e.g. AB12CD" autoCapitalize="characters" autoComplete="off" autoFocus={!canScan} inputMode="text" aria-label="Booking code" />
         </Field>
         {err && <Notice tone="bad">{err}</Notice>}
         <button className="btn primary block xl" disabled={busy || code.length < 6}>{busy ? 'Finding…' : 'Check in'}</button>
