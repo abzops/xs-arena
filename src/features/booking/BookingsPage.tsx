@@ -4,6 +4,9 @@ import { CalendarPlus, Camera, Check, CirclePlay, Copy, ExternalLink, QrCode, Us
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
+import { ImageSendButton } from '../../components/ImageSend';
+import { ticketCard } from '../../lib/cards';
+import { ticketCaption } from '../../lib/messages';
 import { Empty, Field, Loading, Notice, Sheet, useToast } from '../../components/ui';
 import { command } from '../../lib/commands';
 import { addDays, formatDay, todayInCentre, zoned } from '../../lib/dates';
@@ -278,13 +281,14 @@ function NewBookingSheet({ defaultDay, onClose }: { defaultDay: string; onClose:
   if (made) {
     const b = made.booking;
     const time = new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: centre.timezone }).format(new Date(b.starts_at));
-    const msg = `Hi ${b.name}, your ${b.activity} booking at ${centre.name} is confirmed for ${formatDay(f.date)}, ${time} (${durationLabel(b.minutes)}). Code ${b.code}. Your ticket: ${ticketUrl(made.token)}`;
-    const phone = b.phone.replace(/\D/g, '');
     return (
       <Sheet title="Booking confirmed" onClose={onClose}>
         <div className="stack lg">
           <div className="book-summary"><b>{b.name} · {b.activity}</b><span>{formatDay(f.date)}, {time} · {durationLabel(b.minutes)} · code <b>{b.code}</b></span></div>
-          <a className="btn primary block xl" href={`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer">Send ticket on WhatsApp</a>
+          <ImageSendButton small={false} block className="primary xl" label="Send ticket on WhatsApp" title="Send ticket" name={b.name} phone={b.phone}
+            filename={`ticket-${b.code}.png`} caption={ticketCaption(centre.name, b.name, `${formatDay(f.date)}, ${time}`)}
+            build={(lang) => ticketCard({ centre, tz: centre.timezone, lang, activity: b.activity, startsAt: b.starts_at, minutes: b.minutes, party: b.party_size ?? 1,
+              name: b.name, code: b.code, qrText: ticketUrl(made.token), holdMinutes: centre.booking_hold_minutes ?? undefined })} />
           <button className="btn block" onClick={onClose}>Done</button>
         </div>
       </Sheet>

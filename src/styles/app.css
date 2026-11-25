@@ -582,3 +582,10 @@ body:has(.overlay) .toasts { top: calc(12px + env(safe-area-inset-top)); bottom:
 .offer-preview { background: var(--ok-bg); border-radius: var(--r); padding: 12px 14px; white-space: pre-wrap; font-size: var(--t-sm); }
 .offer-preview p { margin: 4px 0 0; }
 .value.neg { color: var(--bad); }
+
+/* Image preview in the "send on WhatsApp" sheet */
+.img-send-preview { display: grid; place-items: center; min-height: 160px; max-height: 46vh; overflow: auto; border-radius: 16px;
+  background: var(--paper-2); padding: 10px; }
+.img-send-preview img { width: 100%; max-width: 420px; height: auto; border-radius: 10px; box-shadow: 0 6px 24px rgb(0 0 0 / 12%); }
+.img-send-preview.small { max-height: 340px; }
+.img-send-preview .muted { display: inline-flex; gap: 8px; align-items: center; }

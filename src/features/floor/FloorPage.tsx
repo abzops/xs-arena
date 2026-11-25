@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { ReasonSheet, WhatsAppPairButton } from '../../components/centre';
+import { ImageSendButton } from '../../components/ImageSend';
+import { startedCard } from '../../lib/cards';
 import { Empty, Field, Loading, Notice, Segmented, Sheet, useToast } from '../../components/ui';
 import { command, usePendingCommands } from '../../lib/commands';
 import { formatTime } from '../../lib/dates';
@@ -13,7 +15,7 @@ import {
   clock, minutesLabel, playedSeconds, priceSummary, timerText, toneOf, TONE_LABEL, useNow, uid,
   type Activity, type FloorState, type Resource, type Tone, type WaitEntry,
 } from '../../lib/floor';
-import { msgReady, msgStarted, msgTimeUp } from '../../lib/messages';
+import { msgReady, msgTimeUp, startedCaption } from '../../lib/messages';
 import { formatINR } from '../../lib/money';
 import { currentPush, disablePush, enablePush, pushSupported } from '../../lib/push';
 import { rpc } from '../../lib/supabase';
@@ -385,10 +387,15 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span><b>{s.customer.name}</b> <span className="muted">{s.customer.phone}</span></span>
             {s.customer.phone && (
-              <WhatsAppPairButton phone={s.customer.phone} name={s.customer.name} label={left !== null && left <= 300 ? 'WhatsApp: time up' : 'WhatsApp: started'}
-                texts={left !== null && left <= 300 && endsAt
-                  ? msgTimeUp({ name: s.customer.name, centre: centre.name, resource: r.name, endsAt, tz: centre.timezone })
-                  : msgStarted({ name: s.customer.name, centre: centre.name, resource: r.name, startedAt: s.started_at, tz: centre.timezone, planned: s.planned_minutes, price: priceSummary(rc) })} />
+              left !== null && left <= 300 && endsAt ? (
+                <WhatsAppPairButton phone={s.customer.phone} name={s.customer.name} label="WhatsApp: time up"
+                  texts={msgTimeUp({ name: s.customer.name, centre: centre.name, resource: r.name, endsAt, tz: centre.timezone })} />
+              ) : (
+                <ImageSendButton label="WhatsApp: started" title="Send game started" name={s.customer.name} phone={s.customer.phone}
+                  filename={`started-${r.name.replace(/\W+/g, '-')}.png`} caption={startedCaption(centre.name, s.customer.name)}
+                  build={(lang) => startedCard({ centre, tz: centre.timezone, lang, resource: r.name, startedAt: s.started_at, planned: s.planned_minutes,
+                    name: s.customer!.name, rate: priceSummary(rc) })} />
+              )
             )}
           </div>
         )}

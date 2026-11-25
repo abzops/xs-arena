@@ -1,10 +1,12 @@
 // Happy-hour offer to past customers: pick who, write the message once, tap-to-send on WhatsApp one by one.
 // (Automatic bulk sending needs Meta's WhatsApp Business API — Phase 3. Tap-to-send is free and allowed today.)
 import { useQuery } from '@tanstack/react-query';
-import { Check, Send } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Check, Send, Share2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCentre } from '../../app/centre';
+import { canShareImages, ImageSendSheet } from '../../components/ImageSend';
 import { Empty, Field, Loading, Notice, Segmented } from '../../components/ui';
+import { offerCard } from '../../lib/cards';
 import { todayInCentre } from '../../lib/dates';
 import { errorMessage } from '../../lib/errors';
 import { supabase } from '../../lib/supabase';
@@ -36,6 +38,15 @@ export function OffersPage() {
   });
   const people = useMemo(() => pickRecipients(q.data ?? [], away, new Date()), [q.data, away]);
   const link = withLink ? `${window.location.origin}/b/${centre.slug}` : undefined;
+  const [to, setTo] = useState<Customer | null>(null);
+  // the offer goes out as a poster image (QR to book instead of a link)
+  const poster = useCallback((l: Lang) => offerCard({ centre, lang: l, offer, bookingUrl: link }), [centre, offer, link]);
+  async function shareToMany() {
+    try {
+      const b = await poster(lang);
+      await navigator.share({ files: [new File([b], 'offer.png', { type: 'image/png' })], text: offerText(lang, centre.name, '', offer).replace(/^Hi ! |^ഹായ് ! /, '') });
+    } catch { /* cancelled */ }
+  }
   const done = people.filter((p) => sent.has(p.id)).length;
 
   return (
@@ -45,10 +56,12 @@ export function OffersPage() {
       <Field label="Offer"><textarea className="input" rows={2} value={offer} onChange={(e) => setOffer(e.target.value)} maxLength={200} /></Field>
       <div className="row" style={{ flexWrap: 'wrap', gap: 12 }}>
         <Segmented label="Language" value={lang} onChange={setLang} options={[{ value: 'en', label: 'English' }, { value: 'ml', label: 'മലയാളം' }]} />
-        {centre.booking_enabled && <label className="check-row" style={{ padding: 0 }}><input type="checkbox" checked={withLink} onChange={(e) => setWithLink(e.target.checked)} /> <span>Add booking link</span></label>}
+        {centre.booking_enabled && <label className="check-row" style={{ padding: 0 }}><input type="checkbox" checked={withLink} onChange={(e) => setWithLink(e.target.checked)} /> <span>QR to book on the poster</span></label>}
       </div>
       <div className="chips">{AWAY.map((a) => <button key={a.v} className="chip" aria-pressed={away === a.v} onClick={() => setAway(a.v)}>{a.l}</button>)}</div>
-      <div className="offer-preview"><span className="muted">Preview</span><p>{offerText(lang, centre.name, 'Rahul', offer || '…', link)}</p></div>
+      <div className="offer-preview"><span className="muted">Message with the poster</span><p>{offerText(lang, centre.name, people[0]?.full_name ?? 'Rahul', offer || '…')}</p></div>
+      <OfferPosterPreview build={poster} />
+      {canShareImages() && <button className="btn block" onClick={shareToMany}><Share2 size={16} /> Share the poster to many chats at once</button>}
       {q.isPending ? <Loading rows={4} /> : q.error ? <Notice tone="bad">{errorMessage(q.error)}</Notice> : people.length === 0 ? (
         <div className="card"><Empty title="No one to send to">No customers match. Try "Everyone".</Empty></div>
       ) : (
@@ -56,13 +69,11 @@ export function OffersPage() {
           <p className="muted"><b>{done}</b> of {people.length} sent today</p>
           <ul className="list card flush">
             {people.map((p) => {
-              const phone = p.phone.replace(/\D/g, '');
-              const url = `https://wa.me/${phone}?text=${encodeURIComponent(offerText(lang, centre.name, p.full_name, offer, link))}`;
               const isSent = sent.has(p.id);
               return (
                 <li key={p.id}>
-                  <a className="item" href={url} target="_blank" rel="noreferrer" style={isSent ? { opacity: 0.55 } : undefined}
-                    onClick={() => setSent((s) => new Set(s).add(p.id))}>
+                  <a className="item" href="#" role="button" style={isSent ? { opacity: 0.55 } : undefined}
+                    onClick={(e) => { e.preventDefault(); setTo(p); }}>
                     <span className="main-col"><span className="title">{p.full_name}</span>
                       <span className="meta"><span>{p.phone}</span><span>{p.visit_count} visits</span>
                         {p.last_visit_at && <span>Last {new Date(p.last_visit_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}</span></span>
@@ -74,6 +85,21 @@ export function OffersPage() {
           </ul>
         </>
       )}
+      {to && (
+        <ImageSendSheet title={`Send offer to ${to.full_name}`} name={to.full_name} phone={to.phone} filename="offer.png"
+          caption={{ en: offerText('en', centre.name, to.full_name, offer), ml: offerText('ml', centre.name, to.full_name, offer) }}
+          build={poster} onSent={() => setSent((x) => new Set(x).add(to.id))} onClose={() => setTo(null)} />
+      )}
     </div>
   );
+}
+
+function OfferPosterPreview({ build }: { build: (l: Lang) => Promise<Blob> }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const t = setTimeout(() => { build('en').then((b) => { if (alive) setUrl((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(b); }); }).catch(() => undefined); }, 400);
+    return () => { alive = false; clearTimeout(t); };
+  }, [build]);
+  return url ? <div className="img-send-preview small"><img src={url} alt="Offer poster" /></div> : null;
 }

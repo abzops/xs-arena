@@ -4,12 +4,15 @@ import { Printer } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
 import { useCentre } from '../../app/centre';
-import { ReasonSheet, WhatsAppPairButton } from '../../components/centre';
+import { ReasonSheet } from '../../components/centre';
+import { ImageSendButton } from '../../components/ImageSend';
+import { receiptCard } from '../../lib/cards';
+import { receiptCaption } from '../../lib/messages';
 import { BackLink, Empty, Field, Loading, Notice, Segmented, Sheet, StatusBadge, useToast } from '../../components/ui';
 import { formatDateTime, formatTime } from '../../lib/dates';
 import { errorMessage } from '../../lib/errors';
 import { minutesLabel } from '../../lib/floor';
-import { msgReceipt, upiLink, type ReceiptGame, type ReceiptItem } from '../../lib/messages';
+import { type ReceiptGame, type ReceiptItem } from '../../lib/messages';
 import { formatINR, paiseToInput, parseINR } from '../../lib/money';
 import { rpc, supabase } from '../../lib/supabase';
 import { METHOD_LABEL, type Method } from '../../lib/types';
@@ -56,20 +59,22 @@ export function BillPage() {
   const due = b.status === 'void' ? 0 : b.total_paise - b.paid_paise;
   const okPays = b.payments.filter((p) => p.status === 'ok');
   const methods = [...new Set(okPays.map((p) => METHOD_LABEL[p.method]))].join(' + ');
-  // the customer's link opens a public receipt (no login); staff link only as a fallback
-  const link = b.share_token ? `${window.location.origin}/r/${b.share_token}` : `${window.location.origin}/s/${centre.slug}/bills/${b.id}`;
-  const wa = b.customers ? msgReceipt({
-    name: b.customers.full_name, centre: centre.name, billNo: b.bill_no, tz, games: b.lines.games, items: b.lines.items, discount: b.discount_paise,
-    tax: b.tax_paise, total: b.total_paise,
-    points: pts?.enabled ? { used: b.points_redeemed, usedPaise: b.points_paise, earned: earned.data ?? 0, balance: pts.balance } : null, paid: b.paid_paise, methods, link, upiLink: due > 0 && centre.upi_id ? upiLink(centre.upi_id, centre.name, due, b.bill_no) : null,
-  }) : null;
+
 
   return (
     <div className="stack xl">
       <div className="row no-print" style={{ justifyContent: 'space-between' }}>
         <BackLink className="btn ghost small" to={`/s/${centre.slug}/bills`}>← Bills</BackLink>
         <div className="row">
-          {wa && b.customers && <WhatsAppPairButton phone={b.customers.phone} name={b.customers.full_name} texts={wa} label="Send receipt" small={false} />}
+          {b.customers && <ImageSendButton small={false} label="Send receipt" title="Send receipt" name={b.customers.full_name} phone={b.customers.phone}
+            filename={`receipt-${b.bill_no}.png`} caption={receiptCaption(centre.name, b.customers.full_name, due)}
+            build={(lang) => receiptCard({
+              centre, tz, lang, billNo: b.bill_no, createdAt: b.created_at, customer: b.customers?.full_name, games: b.lines.games, items: b.lines.items,
+              subtotal: b.subtotal_paise, discount: b.discount_paise, pointsUsed: b.points_redeemed, pointsPaise: b.points_paise, tax: b.tax_paise, gstRate: b.gst_rate_bp,
+              total: b.total_paise, paid: b.paid_paise, methods, voided: b.status === 'void',
+              earned: pts?.enabled && earned.data ? { earned: earned.data, balance: pts.balance } : null,
+              upi: centre.upi_id, bookingUrl: centre.booking_enabled ? `${window.location.origin}/b/${centre.slug}` : null,
+            })} />}
           <button className="btn" onClick={() => window.print()}><Printer size={18} /> Print</button>
           {can('floor.operate') && <BackLink className="btn primary" to={`/s/${centre.slug}/floor`}>Back to floor</BackLink>}
         </div>

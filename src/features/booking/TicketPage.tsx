@@ -1,6 +1,8 @@
 // Booking ticket at /t/:token — the customer's proof of booking. Staff scan the QR (this page's own link) to check in.
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
+import { ImageSendButton } from '../../components/ImageSend';
+import { ticketCard } from '../../lib/cards';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { Logo, Notice } from '../../components/ui';
 import { formatDay } from '../../lib/dates';
@@ -8,7 +10,7 @@ import { errorMessage } from '../../lib/errors';
 import { formatINR } from '../../lib/money';
 import { rpc } from '../../lib/supabase';
 import './booking.css';
-import { bookingLabel, durationLabel, ticketUrl, type Booking } from './types';
+import { bookingLabel, ticketUrl, type Booking } from './types';
 
 type Ticket = {
   booking: Booking; can_cancel: boolean;
@@ -59,7 +61,6 @@ export function TicketPage() {
   const where = [c.address, c.city].filter(Boolean).join(', ');
   const stamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const calendar = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${b.activity} at ${c.name}`)}&dates=${stamp(b.starts_at)}/${stamp(b.ends_at)}&details=${encodeURIComponent(`Booking code ${b.code}. Ticket: ${ticketUrl(token)}`)}&location=${encodeURIComponent([c.name, where].filter(Boolean).join(', '))}`;
-  const share = `My ${b.activity} booking at ${c.name}: ${date === today ? 'today' : formatDay(date)}, ${time(b.starts_at)} (${durationLabel(b.minutes)}). Code ${b.code}. ${ticketUrl(token)}`;
 
   async function cancel() {
     setCancelling(true);
@@ -94,7 +95,7 @@ export function TicketPage() {
               <div role="img" aria-label="Check-in QR code" dangerouslySetInnerHTML={{ __html: qr }} />
               <p>Code <b className="ticket-code">{b.code}</b></p>
               <p className="muted">Show this at the counter. We keep your booking until {holdUntil}.</p>
-              <p className="muted">This page is your ticket — bookmark it or share it to yourself on WhatsApp.</p>
+              <p className="muted">This page is your ticket — bookmark it, or tap “Share on WhatsApp” to save the ticket image.</p>
             </div>
           )}
           {b.status === 'seated' && (b.session_status === 'running' || b.session_status === 'paused') && <Notice tone="ok">Enjoy your game{b.resource ? ` on ${b.resource}` : ''}!</Notice>}
@@ -103,7 +104,11 @@ export function TicketPage() {
         <div className="stack">
           {live && (
             <>
-              <a className="btn block" href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noreferrer">Share on WhatsApp</a>
+              <ImageSendButton small={false} block label="Share on WhatsApp" title="Share your ticket" filename={`ticket-${b.code}.png`}
+                caption={{ en: `My ${b.activity} booking at ${c.name}: ${date === today ? 'today' : formatDay(date)}, ${time(b.starts_at)}. Code ${b.code}.`,
+                  ml: `${c.name}-ൽ എന്റെ ${b.activity} ബുക്കിംഗ്: ${date === today ? 'ഇന്ന്' : formatDay(date)}, ${time(b.starts_at)}. കോഡ് ${b.code}.` }}
+                build={(lang) => ticketCard({ centre: c, tz, lang, activity: b.activity, startsAt: b.starts_at, minutes: b.minutes, party: b.party_size, name: b.name,
+                  code: b.code, qrText: ticketUrl(token), holdMinutes: c.hold_minutes })} />
               <a className="btn block" href={calendar} target="_blank" rel="noreferrer">Add to calendar</a>
             </>
           )}

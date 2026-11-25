@@ -61,3 +61,25 @@ export function upiLink(upiId: string, payee: string, amountPaise: number, note:
   const p = new URLSearchParams({ pa: upiId, pn: payee.slice(0, 40), am: (amountPaise / 100).toFixed(2), cu: 'INR', tn: note.slice(0, 40) });
   return `upi://pay?${p.toString()}`;
 }
+
+/** Short caption sent WITH a receipt image (the image has all the details; no links). */
+export function receiptCaption(centre: string, name: string, duePaise: number): WaPair {
+  const f = first(name);
+  return {
+    en: duePaise > 0 ? `Hi ${f}, here's your bill from ${centre}. ${formatINR(duePaise)} is pending — scan the UPI QR in the image to pay. Thank you!` : `Hi ${f}, thanks for playing at ${centre}! Here's your receipt 🎮`,
+    ml: duePaise > 0 ? `ഹായ് ${f}, ${centre}-ലെ നിങ്ങളുടെ ബിൽ. ${formatINR(duePaise)} ബാക്കിയുണ്ട് — ചിത്രത്തിലെ UPI QR സ്കാൻ ചെയ്ത് അടയ്ക്കാം. നന്ദി!` : `ഹായ് ${f}, ${centre}-ൽ കളിക്കാൻ വന്നതിന് നന്ദി! നിങ്ങളുടെ രസീത് 🎮`,
+  };
+}
+
+export function ticketCaption(centre: string, name: string, when: string): WaPair {
+  const f = first(name);
+  return {
+    en: `Hi ${f}, your booking at ${centre} is confirmed for ${when}. Show the QR in this image at the counter.`,
+    ml: `ഹായ് ${f}, ${centre}-ൽ ${when}-ന് നിങ്ങളുടെ ബുക്കിംഗ് ഉറപ്പായി. ഈ ചിത്രത്തിലെ QR കൗണ്ടറിൽ കാണിക്കൂ.`,
+  };
+}
+
+export function startedCaption(centre: string, name: string): WaPair {
+  const f = first(name);
+  return { en: `Hi ${f}! Welcome to ${centre} 🎮 Your game details are in the image. Have fun!`, ml: `ഹായ് ${f}! ${centre}-ലേക്ക് സ്വാഗതം 🎮 കളിയുടെ വിവരങ്ങൾ ചിത്രത്തിലുണ്ട്. ആസ്വദിക്കൂ!` };
+}

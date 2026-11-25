@@ -1,11 +1,13 @@
 // End-of-day summary for the owner: money, games, payment split, and leakage alerts. Share on WhatsApp in one tap.
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Share2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { useCentre } from '../../app/centre';
 import { Empty, Loading, Notice } from '../../components/ui';
 import { addDays, formatDay, todayInCentre } from '../../lib/dates';
-import { METHOD, summaryText, type DaySummary } from './text';
+import { METHOD, type DaySummary } from './text';
+import { ImageSendButton } from '../../components/ImageSend';
+import { summaryCard } from '../../lib/cards';
 import { errorMessage } from '../../lib/errors';
 import { formatINR } from '../../lib/money';
 import { rpc } from '../../lib/supabase';
@@ -32,7 +34,11 @@ export function DaySummaryPage() {
     <div className="stack lg">
       <div className="page-head">
         <h1>Day summary</h1>
-        {s && <a className="btn primary" href={`https://wa.me/?text=${encodeURIComponent(summaryText(s))}`} target="_blank" rel="noreferrer"><Share2 size={18} /> <span className="btn-text">Share</span></a>}
+        {s && <ImageSendButton small={false} className="primary" label="Share" title="Share day summary" filename={`day-summary-${s.date}.png`}
+          caption={{ en: `${centre.name} · day summary ${formatDay(s.date)}`, ml: `${centre.name} · ${formatDay(s.date)} ദിവസത്തെ കണക്ക്` }}
+          build={() => summaryCard({ centre, date: s.date, revenue: s.revenue_paise, expenses: s.expenses_paise, net: s.net_paise, bills: s.bills, games: s.games,
+            customers: s.customers, byGame: s.by_game, snacks: s.snacks_paise, byMethod: Object.fromEntries(Object.entries(s.by_method).map(([k, v]) => [METHOD[k] ?? k, v])),
+            unpaid: s.unpaid_paise, alerts: s.alerts.length })} />}
       </div>
       <div className="chips scroll">
         {Array.from({ length: 7 }, (_, i) => addDays(today, -i)).map((d, i) => (
