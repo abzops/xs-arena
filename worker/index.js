@@ -9,7 +9,7 @@ const TYPES = {
 };
 const SEC = {
   'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'x-frame-options': 'DENY',
-  'permissions-policy': 'camera=(self), microphone=(), geolocation=()', 'strict-transport-security': 'max-age=31536000; includeSubDomains',
+  'permissions-policy': 'camera=(self), microphone=(self), geolocation=()', 'strict-transport-security': 'max-age=31536000; includeSubDomains',
 };
 
 async function fromOrigin(path, ttl) {

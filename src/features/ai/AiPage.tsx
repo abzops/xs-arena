@@ -27,7 +27,7 @@ const GROUPS: { title: string; items: string[]; owner?: boolean }[] = [
 ];
 
 type Rec = { lang: string; interimResults: boolean; continuous: boolean; start: () => void; stop: () => void;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: ((e: { error?: string }) => void) | null };
 
 const STORE = 'xs-ai-chat';
 function loadTurns(centre: string): Turn[] {
@@ -211,13 +211,24 @@ function AiChat({ data }: { data: FloorState | undefined }) {
   }
 
   function listen() {
-    if (!RecCtor) { input.current?.focus(); return; }
+    if (!RecCtor) { toast('Voice works in Chrome (Android, laptop) and Safari (iPhone). Type it here instead.'); input.current?.focus(); return; }
     if (listening) { rec.current?.stop(); return; }
     const r = new RecCtor();
     r.lang = lang; r.interimResults = false; r.continuous = false;
     r.onresult = (e) => { const said = e.results[0]?.[0]?.transcript ?? ''; setText(said); void submit(said); };
     r.onend = () => setListening(false);
-    r.onerror = () => { setListening(false); toast('Could not hear that. Try again or type it.'); };
+    r.onerror = (e) => {
+      setListening(false);
+      const why: Record<string, string> = {
+        'not-allowed': 'Microphone is blocked. Tap the lock icon next to the address, allow Microphone, then try again.',
+        'service-not-allowed': 'Microphone is blocked. Tap the lock icon next to the address, allow Microphone, then try again.',
+        'audio-capture': 'No microphone found on this device.',
+        'network': 'Voice needs internet. Check the connection or type it.',
+        'no-speech': 'Didn’t hear anything. Tap the mic and speak.',
+        'language-not-supported': 'This browser can’t do Malayalam voice. Switch to EN or type it.',
+      };
+      toast(why[e?.error ?? ''] ?? 'Could not hear that. Try again or type it.');
+    };
     rec.current = r; setListening(true);
     try { r.start(); } catch { setListening(false); }
   }
