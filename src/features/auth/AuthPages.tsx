@@ -147,7 +147,7 @@ export function LoginPage() {
             <Collapse open={mode === 'signup'}>
               <Row label="Your name" value={name} onChange={setName} autoComplete="name" tabIndex={mode === 'signup' ? 0 : -1} />
             </Collapse>
-            <Row label={mode === 'signin' ? 'Email or username' : 'Email'} type={mode === 'signin' ? 'text' : 'email'} inputMode="email"
+            <Row label={mode === 'signin' ? 'Email or username' : 'Email'} type="email" inputMode="email"
               value={email} onChange={setEmail} autoComplete={mode === 'signin' ? 'username' : 'email'} />
             <Collapse open={mode !== 'reset'}>
               <PasswordRow value={password} onChange={setPassword} tabIndex={mode !== 'reset' ? 0 : -1}
