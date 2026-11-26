@@ -48,8 +48,6 @@
 .book-bar b { font-size: var(--t-md); }
 .book-bar .muted { font-size: var(--t-sm); }
 .book-bar .btn { min-width: 110px; }
-.book-summary { display: grid; gap: 4px; background: var(--paper-2); border-radius: var(--r); padding: 12px 14px; }
-.book-summary .muted { font-size: var(--t-sm); }
 .book-foot { text-align: center; font-size: var(--t-xs); display: flex; align-items: center; justify-content: center; gap: 6px; }
 .inline-logo { opacity: .7; }
 

@@ -640,3 +640,7 @@ body:has(.overlay) .toasts { top: calc(12px + env(safe-area-inset-top)); bottom:
 @keyframes guide-in { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .guide-card, .guide-spot { animation: none; transition: none; } }
 .guide-dim.clear { background: transparent; }
+
+/* Summary box used by bookings, check-in (also opened from the Floor) and repair tickets — global so every page has it. */
+.book-summary { display: grid; gap: 4px; background: var(--paper-2); border-radius: var(--r); padding: 12px 14px; }
+.book-summary .muted { font-size: var(--t-sm); }
