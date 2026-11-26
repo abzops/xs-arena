@@ -490,7 +490,11 @@ end $$;
 -- ───────────────────────── Grants ─────────────────────────
 revoke execute on all functions in schema public from public, anon;
 revoke execute on function public.set_centre_addon(uuid, text, boolean) from authenticated;
-grant execute on function public.set_centre_addon(uuid, text, boolean) to service_role;
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant execute on function public.set_centre_addon(uuid, text, boolean) to service_role;
+  end if;
+end $$;
 grant execute on function public.save_asset(uuid, jsonb), public.raise_ticket(uuid, text, text, uuid, uuid, text, boolean),
   public.start_ticket(uuid, uuid), public.resolve_ticket(uuid, uuid, text, timestamptz, bigint, boolean),
   public.set_resource_games(uuid, uuid, text[]), public.staff_create_booking(uuid, uuid, timestamptz, int, int, text, text, text, text),
