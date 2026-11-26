@@ -2,6 +2,16 @@
 \set ON_ERROR_STOP 1
 set client_min_messages = warning;
 
+-- Written before the 26 Nov 2026 pilot rules (name + mobile required, snacks as a paid add-on). The centres this file
+-- creates keep the old behaviour: walk-ins without a mobile, snacks included. Updated with the owner's OK; removed at the end.
+create or replace function public._test_old_rules() returns trigger language plpgsql as $t$
+begin
+  update public.centres set require_customer = false where id = new.id;
+  insert into public.centre_addons(centre_id, addon) values (new.id, 'snacks') on conflict do nothing;
+  return new;
+end $t$;
+create trigger zz_test_old_rules after insert on public.centres for each row execute function public._test_old_rules();
+revoke execute on function public._test_old_rules() from public, anon, authenticated;
 insert into auth.users(id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000000f1', 'owner.f@test.local', '{"display_name":"Owner F"}'),
   ('00000000-0000-0000-0000-0000000000f2', 'desk.f@test.local', '{}'),
@@ -181,3 +191,6 @@ begin
 
   raise notice 'All floor/session tests passed';
 end $$;
+
+drop trigger zz_test_old_rules on public.centres;
+drop function public._test_old_rules();

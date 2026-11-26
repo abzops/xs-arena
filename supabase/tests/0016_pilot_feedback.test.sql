@@ -213,4 +213,48 @@ begin
   perform pg_temp.reset();
 end $$;
 
+-- ── Database enforces name + mobile and the snacks add-on (26 Nov, owner's OK) ──
+do $$
+declare c uuid := (select v::uuid from t where k = 'c'); t1 uuid := (select v::uuid from t where k = 't1'); prod uuid; s1 uuid; tab uuid;
+begin
+  perform pg_temp.as_user('00000000-0000-0000-0000-000000000611');
+  -- free Table 1 first (the ticket test left a game on it)
+  perform void_session(c, (select id from sessions where resource_id = t1 and status in ('running','paused')), 'test cleanup');
+  perform pg_temp.expect_error(format('select start_session(%L, %L, %L)', c, gen_random_uuid(), t1), 'name and mobile');
+  perform pg_temp.expect_error(format('select start_session(%L, %L, %L, 1, null, %L)', c, gen_random_uuid(), t1, '9847066601'), 'customer''s name');
+  s1 := gen_random_uuid();
+  perform start_session(c, s1, t1, 1, null, '9847066601', 'Manu');
+  perform pg_temp.eq('started with name + mobile', (select c2.full_name from sessions x join customers c2 on c2.id = x.customer_id where x.id = s1), 'Manu');
+  perform pg_temp.expect_error(format('select add_to_waitlist(%L, %L, %L)', c, (select activity_id from resources where id = t1), 'Walk-in'), 'mobile');
+  -- the rule off: old behaviour
+  update centres set require_customer = false where id = c;
+  perform start_session(c, gen_random_uuid(), (select id from resources where centre_id = c and name = 'PS5 #1'));
+  update centres set require_customer = true where id = c;
+
+  -- snacks: the starter list from create_centre is there, but can't be sold or changed without the add-on
+  perform pg_temp.reset(); perform set_centre_addon(c, 'snacks', false); perform pg_temp.as_user('00000000-0000-0000-0000-000000000611');
+  perform pg_temp.eq('starter snacks kept', (select count(*) > 0 from products where centre_id = c), true);
+  select id into prod from products where centre_id = c limit 1;
+  select tab_id into tab from sessions where id = s1;
+  perform pg_temp.expect_error(format('select tab_add_item(%L, %L, %L, 1)', c, tab, prod), 'add-on');
+  perform pg_temp.expect_error(format('select adjust_stock(%L, %L, 5, %L)', c, prod, 'purchase'), 'add-on');
+  perform pg_temp.reset();
+  perform set_centre_addon(c, 'snacks', true);
+  perform pg_temp.as_user('00000000-0000-0000-0000-000000000611');
+  perform tab_add_item(c, tab, prod, 1);
+  perform pg_temp.eq('add-on on: snack sold', (select count(*) from tab_items where tab_id = tab and product_id = prod)::int, 1);
+  perform pg_temp.reset();
+end $$;
+
+-- a brand-new centre still gets made (with its starter snack list) while the add-on is off
+do $$
+declare c uuid;
+begin
+  perform pg_temp.as_user('00000000-0000-0000-0000-000000000613');
+  c := create_centre('Second Feedback Arena');
+  perform pg_temp.eq('new centre made', (select count(*) from centres where id = c)::int, 1);
+  perform pg_temp.eq('no add-on', has_feature(c, 'snacks'), false);
+  perform pg_temp.reset();
+end $$;
+
 select 'pilot feedback ok';
