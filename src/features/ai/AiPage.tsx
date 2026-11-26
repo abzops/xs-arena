@@ -150,10 +150,18 @@ function AiChat({ data }: { data: FloorState | undefined }) {
     return undefined;
   }
 
+  // A command typed or spoken before the floor has loaded waits for it (otherwise "Pool 1" isn't known yet).
+  const pending = useRef<string | null>(null);
+  useEffect(() => {
+    if (data && pending.current) { const q = pending.current; pending.current = null; setThinking(false); void submit(q); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   async function submit(q: string) {
     const trimmed = q.trim();
     if (!trimmed) return;
     setText('');
+    if (!data) { pending.current = trimmed; setThinking(true); return; }
     let intent = parse(trimmed, ctx);
     if (data && (intent.type === 'start' || intent.type === 'extend' || intent.type === 'pause' || intent.type === 'resume' || intent.type === 'end')) {
       const rid = intent.resource.id;
