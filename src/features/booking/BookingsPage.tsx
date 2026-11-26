@@ -13,11 +13,12 @@ import { addDays, formatDay, todayInCentre, zoned } from '../../lib/dates';
 import { errorMessage } from '../../lib/errors';
 import { uid } from '../../lib/floor';
 import { formatINR } from '../../lib/money';
+import { cameraAvailable, startQrScan } from '../../lib/qrScan';
 import { rpc, supabase } from '../../lib/supabase';
 import './booking.css';
 import { bookingLabel, durationLabel, ticketUrl, type Booking } from './types';
 
-type CheckIn = { booking: Booking; free_tables: { id: string; name: string; capacity: number }[]; balance_paise: number };
+type CheckIn = { booking: Booking; free_tables: { id: string; name: string; capacity: number; games?: string[]; has_game?: boolean }[]; balance_paise: number };
 
 export function useBookingsRealtime(onChange: () => void) {
   const { centre } = useCentre();
@@ -122,7 +123,7 @@ function BookingRow({ b, onSeat }: { b: Booking; onSeat: (c: CheckIn) => void })
       <div className="main-col">
         <span className="title">{b.name} <span className={`ticket-status st-${bookingLabel(b).tone}`}>{bookingLabel(b).label}</span></span>
         <span className="meta">
-          <i className="game-dot" style={{ background: b.color }} /> {b.activity} · {b.party_size} pl · {b.phone}
+          <i className="game-dot" style={{ background: b.color }} /> {b.activity}{b.game ? ` · ${b.game}` : ''} · {b.party_size} pl · {b.phone}
           {b.resource && ` · ${b.resource}`} · <span className="code">{b.code}</span>{b.source === 'staff' && ' · phone'}
         </span>
         {b.note && <span className="meta">“{b.note}”</span>}
@@ -151,8 +152,7 @@ export function CheckInSheet({ onClose, onFound }: { onClose: () => void; onFoun
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
-  const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia;
-
+  const canScan = cameraAvailable();
   const find = async (value: string) => {
     setErr(null); setBusy(true);
     try {
@@ -163,28 +163,13 @@ export function CheckInSheet({ onClose, onFound }: { onClose: () => void; onFoun
     } catch (e) { setErr(errorMessage(e)); } finally { setBusy(false); }
   };
 
+  // Scan the ticket QR: works on iPad/iPhone Safari too (jsQR), not just where the browser has a QR reader.
   useEffect(() => {
-    if (!scanning) return;
-    let stream: MediaStream | null = null; let stop = false; let timer = 0;
-    type Detector = { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
-    const BD = (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
-    const detector = new BD({ formats: ['qr_code'] });
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then((s) => {
-      stream = s;
-      if (stop || !video.current) return;
-      video.current.srcObject = s; void video.current.play();
-      const tick = async () => {
-        if (stop || !video.current) return;
-        try {
-          const codes = await detector.detect(video.current);
-          const hit = codes.find((c) => /\/t\/[A-Za-z0-9]+/.test(c.rawValue));
-          if (hit) { setScanning(false); void find(hit.rawValue); return; }
-        } catch { /* frame not ready */ }
-        timer = window.setTimeout(tick, 250);
-      };
-      void tick();
-    }).catch(() => { setErr('Camera not available. Type the code instead.'); setScanning(false); });
-    return () => { stop = true; window.clearTimeout(timer); stream?.getTracks().forEach((t) => t.stop()); };
+    if (!scanning || !video.current) return;
+    return startQrScan(video.current, (text) => {
+      if (!/\/t\/[A-Za-z0-9]+/.test(text)) return false;
+      setScanning(false); void find(text); return true;
+    }, (msg) => { setErr(msg); setScanning(false); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanning]);
 
@@ -192,9 +177,10 @@ export function CheckInSheet({ onClose, onFound }: { onClose: () => void; onFoun
     <Sheet title="Check in a booking" onClose={onClose}>
       <form className="stack lg" onSubmit={(e) => { e.preventDefault(); void find(code); }}>
         {scanning ? (
-          <div className="scan-box"><video ref={video} playsInline muted aria-label="Camera" /><span>Point at the QR on the customer's phone</span></div>
+          <div className="scan-box" data-testid="scan-box"><video ref={video} playsInline muted autoPlay aria-label="Camera" /><span>Point at the QR on the customer's phone</span>
+            <button type="button" className="btn small" onClick={() => setScanning(false)}>Stop camera</button></div>
         ) : canScan && (
-          <button type="button" className="btn block xl" onClick={() => setScanning(true)}><Camera size={20} /> Scan QR</button>
+          <button type="button" className="btn primary block xl" onClick={() => { setErr(null); setScanning(true); }} data-testid="scan-qr"><Camera size={20} /> Scan QR on their phone</button>
         )}
         <Field label={canScan ? "Or type the 6-letter code" : "Booking code (6 letters on the ticket)"}>
           <input className="input code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
@@ -228,8 +214,11 @@ export function SeatSheet({ data, onClose }: { data: CheckIn; onClose: () => voi
   return (
     <Sheet title={`${b.name} has arrived`} onClose={onClose}>
       <div className="stack lg">
+        {b.game && !data.free_tables.some((t) => t.has_game) && data.free_tables.length > 0 && (
+          <Notice tone="warn">No free console has {b.game} right now. Pick another or wait for one to free up.</Notice>
+        )}
         <div className="book-summary">
-          <b>{b.activity} · {durationLabel(b.minutes)} · {b.party_size} player{b.party_size > 1 ? 's' : ''}</b>
+          <b>{b.activity}{b.game ? ` · ${b.game}` : ''} · {durationLabel(b.minutes)} · {b.party_size} player{b.party_size > 1 ? 's' : ''}</b>
           <span>Booked {time(b.starts_at)} – {time(b.ends_at)} · code {b.code}</span>
           {data.balance_paise > 0 && <span className="muted">About {formatINR(data.balance_paise)} to pay after the game</span>}
           {b.note && <span className="muted">“{b.note}”</span>}
@@ -239,8 +228,8 @@ export function SeatSheet({ data, onClose }: { data: CheckIn; onClose: () => voi
         ) : (
           <div className="field"><span>Table</span>
             <div className="chips">{data.free_tables.map((t, i) => (
-              <button key={t.id} type="button" className="chip" aria-pressed={table === t.id} onClick={() => setTable(t.id)}>
-                {t.name}{i === 0 ? ' · suggested' : ''}</button>
+              <button key={t.id} type="button" className="chip" aria-pressed={table === t.id} onClick={() => setTable(t.id)} data-has-game={t.has_game ? '1' : undefined}>
+                {t.name}{b.game && t.has_game ? ` · has ${b.game}` : ''}{i === 0 ? ' · suggested' : ''}</button>
             ))}</div>
           </div>
         )}
@@ -265,14 +254,23 @@ function NewBookingSheet({ defaultDay, onClose }: { defaultDay: string; onClose:
       return data as { id: string; name: string }[];
     },
   });
+  const gamesQ = useQuery({
+    queryKey: ['places', centre.id, 'games'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('resources').select('activity_id,games').eq('centre_id', centre.id).eq('status', 'active');
+      if (error) throw error;
+      return data as { activity_id: string; games: string[] }[];
+    },
+  });
   const durations = centre.booking_durations?.length ? centre.booking_durations : [30, 60, 90, 120];
-  const [f, setF] = useState({ activity: '', date: defaultDay, time: '18:00', minutes: 60, party: 2, phone: '', name: '', note: '' });
+  const [f, setF] = useState({ activity: '', date: defaultDay, time: '18:00', minutes: 60, party: 2, phone: '', name: '', note: '', game: '' });
+  const gameList = [...new Set((gamesQ.data ?? []).filter((r) => r.activity_id === f.activity).flatMap((r) => r.games))].sort((a, b) => a.localeCompare(b));
   const [made, setMade] = useState<{ token: string; booking: Booking } | null>(null);
   useEffect(() => { if (!f.activity && acts.data?.length) setF((x) => ({ ...x, activity: acts.data![0].id })); }, [acts.data, f.activity]);
   const save = useMutation({
     mutationFn: () => rpc<{ token: string; booking: Booking }>('staff_create_booking', {
       p_centre: centre.id, p_activity: f.activity, p_starts_at: zoned(f.date, f.time, centre.timezone).toISOString(), p_minutes: f.minutes,
-      p_party: f.party, p_name: f.name, p_phone: f.phone, p_note: f.note || null,
+      p_party: f.party, p_name: f.name, p_phone: f.phone, p_note: f.note || null, p_game: f.game || null,
     }),
     onSuccess: async (r) => { await qc.invalidateQueries({ queryKey: ['bookings', centre.id] }); await qc.invalidateQueries({ queryKey: ['floor', centre.id] }); setMade(r); toast('Booked'); },
   });
@@ -284,10 +282,10 @@ function NewBookingSheet({ defaultDay, onClose }: { defaultDay: string; onClose:
     return (
       <Sheet title="Booking confirmed" onClose={onClose}>
         <div className="stack lg">
-          <div className="book-summary"><b>{b.name} · {b.activity}</b><span>{formatDay(f.date)}, {time} · {durationLabel(b.minutes)} · code <b>{b.code}</b></span></div>
+          <div className="book-summary"><b>{b.name} · {b.activity}{b.game ? ` · ${b.game}` : ''}</b><span>{formatDay(f.date)}, {time} · {durationLabel(b.minutes)} · code <b>{b.code}</b></span></div>
           <ImageSendButton small={false} block className="primary xl" label="Send ticket on WhatsApp" title="Send ticket" name={b.name} phone={b.phone}
             filename={`ticket-${b.code}.png`} caption={ticketCaption(centre.name, b.name, `${formatDay(f.date)}, ${time}`)}
-            build={(lang) => ticketCard({ centre, tz: centre.timezone, lang, activity: b.activity, startsAt: b.starts_at, minutes: b.minutes, party: b.party_size ?? 1,
+            build={(lang) => ticketCard({ centre, tz: centre.timezone, lang, activity: b.game ? `${b.activity} · ${b.game}` : b.activity, startsAt: b.starts_at, minutes: b.minutes, party: b.party_size ?? 1,
               name: b.name, code: b.code, qrText: ticketUrl(made.token), holdMinutes: centre.booking_hold_minutes ?? undefined })} />
           <button className="btn block" onClick={onClose}>Done</button>
         </div>
@@ -297,8 +295,12 @@ function NewBookingSheet({ defaultDay, onClose }: { defaultDay: string; onClose:
   return (
     <Sheet title="New booking" onClose={onClose}>
       <form className="stack lg" onSubmit={submit}>
-        <Field label="Game"><select className="input" value={f.activity} onChange={(e) => setF({ ...f, activity: e.target.value })}>
+        <Field label="Game"><select className="input" value={f.activity} onChange={(e) => setF({ ...f, activity: e.target.value, game: '' })}>
           {acts.data?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
+        {gameList.length > 0 && (
+          <Field label="Which game on the console?"><select className="input" value={f.game} onChange={(e) => setF({ ...f, game: e.target.value })} data-testid="staff-book-game">
+            <option value="">Any game</option>{gameList.map((g) => <option key={g} value={g}>{g}</option>)}</select></Field>
+        )}
         <div className="grid-2">
           <Field label="Day"><input className="input" type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} required /></Field>
           <Field label="Time"><input className="input" type="time" step={300} value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} required /></Field>

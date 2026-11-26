@@ -79,6 +79,7 @@ export function TicketPage() {
           <header>
             <p className="book-eyebrow">{c.name}</p>
             <h1>{b.activity}</h1>
+            {b.game && <p className="ticket-game" data-testid="ticket-game">🎮 {b.game}</p>}
             <span className={`ticket-status st-${bookingLabel(b).tone}`}>{bookingLabel(b).label}</span>
           </header>
           <dl className="ticket-facts">
@@ -107,7 +108,7 @@ export function TicketPage() {
               <ImageSendButton small={false} block label="Share on WhatsApp" title="Share your ticket" filename={`ticket-${b.code}.png`}
                 caption={{ en: `My ${b.activity} booking at ${c.name}: ${date === today ? 'today' : formatDay(date)}, ${time(b.starts_at)}. Code ${b.code}.`,
                   ml: `${c.name}-ൽ എന്റെ ${b.activity} ബുക്കിംഗ്: ${date === today ? 'ഇന്ന്' : formatDay(date)}, ${time(b.starts_at)}. കോഡ് ${b.code}.` }}
-                build={(lang) => ticketCard({ centre: c, tz, lang, activity: b.activity, startsAt: b.starts_at, minutes: b.minutes, party: b.party_size, name: b.name,
+                build={(lang) => ticketCard({ centre: c, tz, lang, activity: b.game ? `${b.activity} · ${b.game}` : b.activity, startsAt: b.starts_at, minutes: b.minutes, party: b.party_size, name: b.name,
                   code: b.code, qrText: ticketUrl(token), holdMinutes: c.hold_minutes })} />
               <a className="btn block" href={calendar} target="_blank" rel="noreferrer">Add to calendar</a>
             </>

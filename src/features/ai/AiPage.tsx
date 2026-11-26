@@ -40,7 +40,8 @@ export function AiPage() {
 }
 
 function AiChat({ data }: { data: FloorState | undefined }) {
-  const { centre, can } = useCentre();
+  const { centre, can, hasFeature } = useCentre();
+  const snacksOn = hasFeature('snacks');
   const qc = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ function AiChat({ data }: { data: FloorState | undefined }) {
 
   const products = useQuery({
     queryKey: ['products-lite', centre.id],
+    enabled: snacksOn,
     queryFn: async () => {
       const { data: p, error } = await supabase.from('products').select('id,name,price_paise').eq('centre_id', centre.id).eq('status', 'active');
       if (error) throw error;
@@ -179,6 +181,12 @@ function AiChat({ data }: { data: FloorState | undefined }) {
       let msg = 'Done';
       if (intent.type === 'start') {
         if (res(intent.resource.id).session) throw new Error(`${intent.resource.name} is already playing`);
+        if (centre.require_customer) {
+          // name + mobile are needed for every new customer: open the start screen with the time filled in
+          update(i, { done: 'ok', answer: { text: `Opening ${intent.resource.name} — enter the customer's name and mobile to start.` } });
+          navigate(`/s/${centre.slug}/floor?start=${intent.resource.id}${intent.minutes ? `&minutes=${intent.minutes}` : ''}`);
+          return;
+        }
         await command('start_session', { p_centre: centre.id, p_session: uid(), p_resource: intent.resource.id, p_players: intent.players ?? 1,
           p_planned_minutes: intent.minutes, p_phone: null, p_name: null, p_tab: null, p_source: 'walk_in', p_waitlist: null });
         msg = `${intent.resource.name} started`;

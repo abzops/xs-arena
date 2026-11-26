@@ -7,11 +7,15 @@ export type Booking = {
   estimate_paise: number; advance_paise: number; paid_paise: number; payment_status: 'pay_at_counter' | 'pending' | 'paid' | 'refunded';
   code: string; resource_id: string | null; resource: string | null; session_id: string | null; session_status: string | null;
   note: string | null; created_at: string; arrived_at: string | null; seated_at: string | null;
+  /** The game the customer wants on the console (PS5 etc.), if they picked one. */
+  game?: string | null;
 };
 
 export type PublicActivity = {
   id: string; name: string; kind: string; color: string; icon: string; online_tables: number; tables: number; max_players: number;
   free_now: number; price: { mode: string; price_paise: number; slot_minutes: number; per_player: boolean } | null;
+  /** Games installed on this activity's consoles, with how many consoles have each. */
+  games?: { name: string; consoles: number }[];
 };
 export type PublicCentre = {
   name: string; slug: string; address: string | null; city: string | null; phone: string | null; timezone: string;

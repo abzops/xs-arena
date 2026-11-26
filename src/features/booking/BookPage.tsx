@@ -1,6 +1,7 @@
 // Public booking page at /b/:slug. No sign-in: pick a game, day, length and time; name + phone only after "Book".
 // Customers book a game type, not a table — the centre seats them at any free table of that game.
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Gamepad2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Logo, Notice, Sheet } from '../../components/ui';
 import { addDays, formatDay, time12, todayInCentre } from '../../lib/dates';
@@ -23,6 +24,7 @@ export function BookPage() {
   const [day, setDay] = useState<string | null>(null);
   const [minutes, setMinutes] = useState<number | null>(null);
   const [players, setPlayers] = useState(2);
+  const [game, setGame] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [estimate, setEstimate] = useState(0);
   const [slotErr, setSlotErr] = useState<string | null>(null);
@@ -64,6 +66,8 @@ export function BookPage() {
     if (!minutes && data.centre.durations.length) setMinutes(data.centre.durations.includes(60) ? 60 : data.centre.durations[0]);
   }, [data, days, activityId, day, minutes]);
   useEffect(() => { if (act) setPlayers((p) => Math.min(Math.max(1, p), act.max_players || 1)); }, [act]);
+  // a game picked for one console type doesn't carry over to another
+  useEffect(() => { setGame((g) => (g && act?.games?.some((x) => x.name === g) ? g : null)); }, [act]);
 
   // available times for the chosen game / day / length
   useEffect(() => {
@@ -71,11 +75,11 @@ export function BookPage() {
     if (!activityId || !day || !minutes) { setSlots(null); return; }
     let stop = false;
     setSlots(null); setSlotErr(null);
-    rpc<{ slots: Slot[]; estimate_paise: number }>('booking_slots', { p_slug: slug, p_activity: activityId, p_date: day, p_minutes: minutes, p_party: players })
+    rpc<{ slots: Slot[]; estimate_paise: number }>('booking_slots', { p_slug: slug, p_activity: activityId, p_date: day, p_minutes: minutes, p_party: players, p_game: game })
       .then((r) => { if (!stop) { setSlots(r.slots); setEstimate(r.estimate_paise); } })
       .catch((e) => { if (!stop) setSlotErr(errorMessage(e)); });
     return () => { stop = true; };
-  }, [slug, activityId, day, minutes, players, refresh]);
+  }, [slug, activityId, day, minutes, players, game, refresh]);
 
   if (loadErr && !data) {
     return (
@@ -142,6 +146,21 @@ export function BookPage() {
           </div>
         </section>
 
+        {act && !!act.games?.length && (
+          <section className="book-step" data-testid="game-step">
+            <h2><span className="step-n"><Gamepad2 size={14} /></span> Which game do you want to play?</h2>
+            <div className="chips">
+              <button type="button" className="chip" aria-pressed={game === null} onClick={() => setGame(null)}>Any game</button>
+              {act.games.map((g) => (
+                <button key={g.name} type="button" className="chip" aria-pressed={game === g.name} onClick={() => setGame(g.name)}>
+                  {g.name} <span className="muted">· {g.consoles} {act.kind === 'console' ? 'console' : 'table'}{g.consoles > 1 ? 's' : ''}</span>
+                </button>
+              ))}
+            </div>
+            {game && <p className="muted" style={{ margin: 0, fontSize: 'var(--t-sm)' }}>Times below are for a {act.name} with {game}.</p>}
+          </section>
+        )}
+
         {act && (
           <>
             <section className="book-step" ref={step2}>
@@ -200,14 +219,14 @@ export function BookPage() {
         <div className="book-bar" role="region" aria-label="Your choice">
           <div>
             <b>{time12(slot.local)} · {day === days[0] ? 'Today' : day === days[1] ? 'Tomorrow' : formatDay(day)}</b>
-            <span className="muted">{act.name} · {durationLabel(minutes)} · {players} player{players > 1 ? 's' : ''}{estimate > 0 && ` · ${formatINR(estimate)}`}</span>
+            <span className="muted">{act.name}{game ? ` · ${game}` : ''} · {durationLabel(minutes)} · {players} player{players > 1 ? 's' : ''}{estimate > 0 && ` · ${formatINR(estimate)}`}</span>
           </div>
           <button type="button" className="btn primary" onClick={() => setBooking(true)}>Book</button>
         </div>
       )}
 
       {booking && act && slot && minutes && day && (
-        <ConfirmSheet slug={slug} activityId={act.id} activityName={act.name} slot={slot} day={day} minutes={minutes} players={players}
+        <ConfirmSheet slug={slug} activityId={act.id} activityName={act.name} game={game} slot={slot} day={day} minutes={minutes} players={players}
           estimate={estimate} holdMinutes={c.hold_minutes} isToday={day === days[0]}
           onClose={() => setBooking(false)} onTaken={() => { setBooking(false); setRefresh((n) => n + 1); }} />
       )}
@@ -215,8 +234,8 @@ export function BookPage() {
   );
 }
 
-function ConfirmSheet({ slug, activityId, activityName, slot, day, minutes, players, estimate, holdMinutes, isToday, onClose, onTaken }: {
-  slug: string; activityId: string; activityName: string; slot: Slot; day: string; minutes: number; players: number; estimate: number;
+function ConfirmSheet({ slug, activityId, activityName, game, slot, day, minutes, players, estimate, holdMinutes, isToday, onClose, onTaken }: {
+  slug: string; activityId: string; activityName: string; game: string | null; slot: Slot; day: string; minutes: number; players: number; estimate: number;
   holdMinutes: number; isToday: boolean; onClose: () => void; onTaken: () => void;
 }) {
   const navigate = useNavigate();
@@ -234,7 +253,7 @@ function ConfirmSheet({ slug, activityId, activityName, slot, day, minutes, play
     setErr(null); setBusy(true);
     try {
       const r = await rpc<{ token: string }>('create_booking', {
-        p_slug: slug, p_activity: activityId, p_starts_at: slot.at, p_minutes: minutes, p_party: players, p_name: name, p_phone: phone,
+        p_slug: slug, p_activity: activityId, p_starts_at: slot.at, p_minutes: minutes, p_party: players, p_name: name, p_phone: phone, p_game: game,
       });
       try {
         localStorage.setItem(lastKey(slug), r.token);
@@ -255,7 +274,7 @@ function ConfirmSheet({ slug, activityId, activityName, slot, day, minutes, play
     <Sheet title="Confirm your booking" onClose={onClose}>
       <form className="stack lg" onSubmit={submit}>
         <div className="book-summary">
-          <b>{activityName}</b>
+          <b>{activityName}{game ? ` · ${game}` : ''}</b>
           <span>{isToday ? 'Today' : formatDay(day)}, {time12(slot.local)} · {durationLabel(minutes)} · {players} player{players > 1 ? 's' : ''}</span>
           {estimate > 0 && <span className="muted">{formatINR(estimate)} for {durationLabel(minutes)}{players > 1 ? ` (${players} players)` : ''}, paid at the centre. If you play longer, the extra time is added.</span>}
         </div>

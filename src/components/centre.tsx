@@ -2,6 +2,7 @@
 // a reason sheet, and WhatsApp messages in English or Malayalam.
 import { useMutation } from '@tanstack/react-query';
 import { MessageCircle, Plus, Search } from 'lucide-react';
+import { waNumber } from '../lib/wa';
 import { useDeferredValue, useEffect, useState } from 'react';
 import { useCentre } from '../app/centre';
 import { errorMessage } from '../lib/errors';
@@ -150,8 +151,6 @@ export function waText(kind: WaKind, lang: Lang, f: WaFacts, centre: string) {
   }
 }
 
-/** wa.me needs the country code: a bare 10-digit Indian mobile gets 91 in front. */
-export const waNumber = (phone: string) => { const d = phone.replace(/\D/g, '').replace(/^0(?=\d{10}$)/, ''); return d.length === 10 ? `91${d}` : d; };
 export const waLink = (phone: string, text: string) => `https://wa.me/${waNumber(phone)}?text=${encodeURIComponent(text)}`;
 
 export function WhatsAppButton({ phone, kind, facts, label = 'WhatsApp', small = true }: {
@@ -233,3 +232,4 @@ export function WhatsAppPairSheet({ phone, name, texts, onClose }: { phone: stri
     </Sheet>
   );
 }
+export { waNumber } from '../lib/wa';

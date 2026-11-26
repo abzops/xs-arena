@@ -1,8 +1,8 @@
 // Live floor: every table, console and track with live timers. Tap one to start, pause, extend, move, bill.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, MoveRight, Plus, QrCode, Receipt, Smartphone, Sparkles, Users, WifiOff, X } from 'lucide-react';
+import { Bell, BellOff, CalendarCheck, CirclePause, CirclePlay, Clock, Gamepad2, MoveRight, Plus, QrCode, Receipt, Smartphone, Sparkles, Users, WifiOff, Wrench, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useCentre } from '../../app/centre';
 import { ReasonSheet, WhatsAppPairButton } from '../../components/centre';
 import { ImageSendButton } from '../../components/ImageSend';
@@ -22,6 +22,7 @@ import { rpc } from '../../lib/supabase';
 import { BillSheet, useKnownCustomer } from '../billing/BillSheet';
 import { CheckInSheet, SeatSheet } from '../booking/BookingsPage';
 import { durationLabel, type Booking } from '../booking/types';
+import { RaiseTicketSheet } from '../assets/tickets';
 import { FloorMap, TONE_FILL } from './FloorMap';
 import { useFloorState } from './useFloor';
 import './floor.css';
@@ -39,7 +40,10 @@ export function FloorPage() {
   const [view, setViewState] = useState<View>(() => (localStorage.getItem(VIEW_KEY) as View) || (window.innerWidth < 720 ? 'list' : 'map'));
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
   const [floorId, setFloorId] = useState<string | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const [open, setOpen] = useState<string | null>(() => params.get('start'));
+  const [preset] = useState(() => { const m = Number(params.get('minutes')); return Number.isFinite(m) && m > 0 ? m : null; });
+  useEffect(() => { if (params.get('start')) setParams((p) => { p.delete('start'); p.delete('minutes'); return p; }, { replace: true }); }, [params, setParams]);
   const [bill, setBill] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [tabs, setTabs] = useState(false);
@@ -149,7 +153,7 @@ export function FloorPage() {
         </div>
       )}
 
-      {selected && <ResourceSheet r={selected} a={act(selected.activity_id)} data={data} snapshotAt={state.snapshotAt}
+      {selected && <ResourceSheet r={selected} a={act(selected.activity_id)} data={data} snapshotAt={state.snapshotAt} preset={preset}
         onClose={() => setOpen(null)} onBill={(tab) => { setOpen(null); setBill(tab); }} />}
       {bill && <BillSheet tabId={bill} onClose={() => setBill(null)} />}
       {waiting && <WaitlistSheet data={data} onClose={() => setWaiting(false)} />}
@@ -327,8 +331,8 @@ function PhoneAlerts({ onPerm }: { onPerm: (p: NotificationPermission) => void }
 
 /* ────────────────────────── One table / console / track ────────────────────────── */
 type ExtCheck = { ok: boolean; max_minutes: number; booked_at: string | null; alternatives: { activity_id: string; name: string; free: number }[] };
-function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
-  r: Resource; a: Activity | undefined; data: FloorState; snapshotAt: number; onClose: () => void; onBill: (tab: string) => void;
+function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill, preset }: {
+  r: Resource; a: Activity | undefined; data: FloorState; snapshotAt: number; onClose: () => void; onBill: (tab: string) => void; preset?: number | null;
 }) {
   const { centre, can } = useCentre();
   const qc = useQueryClient();
@@ -337,6 +341,7 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
   const [voiding, setVoiding] = useState(false);
   const [moving, setMoving] = useState(false);
   const [blocked, setBlocked] = useState<ExtCheck | null>(null);
+  const [reporting, setReporting] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ['floor', centre.id] });
   const run = useMutation({
     mutationFn: async (x: { fn: string; args: Record<string, unknown>; ok?: string }) => { const r = await command(x.fn, { p_centre: centre.id, ...x.args }); return { r, ok: x.ok }; },
@@ -346,17 +351,19 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
   const rc = a?.rate_card ?? null;
   const title = `${r.name}${a ? ` · ${a.name}` : ''}`;
 
+  if (reporting) return <RaiseTicketSheet resourceId={r.id} onClose={onClose} />;
   if (r.status === 'out_of_service') {
     return (
       <Sheet title={title} onClose={onClose}>
         <div className="stack lg">
-          <Notice tone="warn">This {a?.kind ?? 'table'} is out of service.</Notice>
-          {can('pricing.manage') && <button className="btn primary block xl" onClick={() => rpc('set_resource_status', { p_centre: centre.id, p_resource: r.id, p_status: 'active' }).then(refresh).then(onClose)}>Bring back into service</button>}
+          <Notice tone="warn">This {a?.kind ?? 'table'} is out of use{r.open_tickets ? ` — ${r.open_tickets} repair ticket${r.open_tickets > 1 ? 's' : ''} open` : ''}.</Notice>
+          {!!r.open_tickets && <Link className="btn primary block xl" to={`/s/${centre.slug}/repairs`}><Wrench size={18} /> See repair tickets</Link>}
+          {can('pricing.manage') && <button className={`btn block${r.open_tickets ? '' : ' primary xl'}`} onClick={() => rpc('set_resource_status', { p_centre: centre.id, p_resource: r.id, p_status: 'active' }).then(refresh).then(onClose)}>Bring back into service</button>}
         </div>
       </Sheet>
     );
   }
-  if (!s) return <StartSheet r={r} a={a} data={data} onClose={onClose} />;
+  if (!s) return <StartSheet r={r} a={a} data={data} onClose={onClose} preset={preset} onReport={() => setReporting(true)} />;
 
   const played = playedSeconds(s, snapshotAt, now);
   const tone = toneOf(r, played);
@@ -471,7 +478,9 @@ function ResourceSheet({ r, a, data, snapshotAt, onClose, onBill }: {
   );
 }
 
-function StartSheet({ r, a, data, onClose, fromWait }: { r: Resource; a: Activity | undefined; data: FloorState; onClose: () => void; fromWait?: WaitEntry }) {
+function StartSheet({ r, a, data, onClose, fromWait, preset, onReport }: {
+  r: Resource; a: Activity | undefined; data: FloorState; onClose: () => void; fromWait?: WaitEntry; preset?: number | null; onReport?: () => void;
+}) {
   const { centre, can } = useCentre();
   const qc = useQueryClient();
   const toast = useToast();
@@ -480,11 +489,15 @@ function StartSheet({ r, a, data, onClose, fromWait }: { r: Resource; a: Activit
   const [phone, setPhone] = useState(fromWait?.phone ?? '');
   const [name, setName] = useState(fromWait?.name ?? '');
   const [players, setPlayers] = useState(Math.min(r.capacity, fromWait?.party_size ?? (slot ? 1 : 2)));
-  const [time, setTime] = useState<number | null>(slot ? rc!.slot_minutes : null);
+  const [time, setTime] = useState<number | null>(slot ? rc!.slot_minutes : preset ?? null);
   const [tab, setTab] = useState('');
   const [waitId, setWaitId] = useState<string | null>(fromWait?.id ?? null);
   const known = useKnownCustomer(phone);
   const waiters = data.waitlist.filter((w) => w.activity_id === r.activity_id);
+  // Pilot feedback: every new customer gives name + mobile (centre setting). Adding to another table's bill reuses that customer.
+  const phoneOk = phone.replace(/\D/g, '').length >= 10;
+  const needDetails = centre.require_customer && !tab;
+  const missing = needDetails && (!phoneOk ? 'mobile' : !(known?.full_name || name.trim()) ? 'name' : null);
   const start = useMutation({
     mutationFn: () => command<{ session_id: string }>('start_session', {
       p_centre: centre.id, p_session: uid(), p_resource: r.id, p_players: players, p_planned_minutes: time,
@@ -498,6 +511,10 @@ function StartSheet({ r, a, data, onClose, fromWait }: { r: Resource; a: Activit
     <Sheet title={`Start ${r.name}`} onClose={onClose}>
       <form className="stack lg" onSubmit={(e) => { e.preventDefault(); start.mutate(); }}>
         <p className="muted" style={{ margin: 0 }}>{a?.name} · {priceSummary(rc)}</p>
+        {!!r.games?.length && (
+          <div className="row game-chips" style={{ gap: 6 }} data-testid="floor-games"><Gamepad2 size={16} className="muted" aria-label="Games" />
+            {r.games.map((g) => <span key={g} className="game-chip">{g}</span>)}</div>
+        )}
         {a?.free_until && (
           <Notice tone="warn">{a.name} is booked from {formatTime(a.free_until, centre.timezone)} — tell walk-ins they can play until then.</Notice>
         )}
@@ -509,9 +526,11 @@ function StartSheet({ r, a, data, onClose, fromWait }: { r: Resource; a: Activit
                 {w.name} · {w.party_size}</button>))}</div></div>
         )}
         <div className="grid-2">
-          <Field label="Mobile (for receipt & points)" hint={known ? `${known.full_name} · ${known.visit_count} visit${known.visit_count === 1 ? '' : 's'}` : 'Optional'}>
-            <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile (optional)" autoFocus={window.matchMedia('(pointer: fine)').matches} /></Field>
-          {!known && <Field label="Name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" /></Field>}
+          <Field label={needDetails ? 'Mobile' : 'Mobile (for receipt & points)'} hint={known ? `${known.full_name} · ${known.visit_count} visit${known.visit_count === 1 ? '' : 's'}` : needDetails ? 'Needed for every new customer' : 'Optional'}>
+            <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={needDetails ? '10-digit mobile' : '10-digit mobile (optional)'}
+              data-testid="start-phone" aria-required={needDetails} autoFocus={window.matchMedia('(pointer: fine)').matches} /></Field>
+          {!known && <Field label="Name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={needDetails ? "Customer's name" : 'Optional'}
+            data-testid="start-name" aria-required={needDetails} /></Field>}
         </div>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <span>{slot && a?.kind === 'track' ? 'Cars' : 'Players'}</span>
@@ -532,8 +551,10 @@ function StartSheet({ r, a, data, onClose, fromWait }: { r: Resource; a: Activit
             {data.open_tabs.map((t) => <option key={t.id} value={t.id}>{t.label}{t.customer ? ` · ${t.customer}` : ''}</option>)}</select></Field>
         )}
         {start.error && <Notice tone="bad">{errorMessage(start.error)}</Notice>}
-        <button className="btn primary block xl" disabled={start.isPending || !can('floor.operate')}>
+        {missing && (phone || name) && <p className="muted" style={{ margin: 0, fontSize: 'var(--t-sm)' }} data-testid="start-missing">Enter the customer's {missing === 'mobile' ? '10-digit mobile' : 'name'} to start.</p>}
+        <button className="btn primary block xl" disabled={start.isPending || !can('floor.operate') || !!missing} data-testid="start-game">
           {start.isPending ? <span className="spinner" /> : <><CirclePlay size={18} /> Start {time ? minutesLabel(time) : 'timer'}</>}</button>
+        {onReport && <button type="button" className="btn ghost block" onClick={onReport}><Wrench size={16} /> Report a problem with {r.name}</button>}
       </form>
     </Sheet>
   );
@@ -549,7 +570,10 @@ function WaitlistSheet({ data, onClose }: { data: FloorState; onClose: () => voi
   const [f, setF] = useState({ name: '', phone: '', activity: data.activities[0]?.id ?? '', party: 2, note: '' });
   const refresh = () => qc.invalidateQueries({ queryKey: ['floor', centre.id] });
   const add = useMutation({
-    mutationFn: () => rpc('add_to_waitlist', { p_centre: centre.id, p_activity: f.activity, p_name: f.name, p_phone: f.phone || null, p_party_size: f.party, p_note: f.note || null }),
+    mutationFn: () => {
+      if (centre.require_customer && (f.phone.replace(/\D/g, '').length < 10 || !f.name.trim())) throw new Error("Enter the customer's name and 10-digit mobile");
+      return rpc('add_to_waitlist', { p_centre: centre.id, p_activity: f.activity, p_name: f.name, p_phone: f.phone || null, p_party_size: f.party, p_note: f.note || null });
+    },
     onSuccess: async () => { await refresh(); toast('Added to waiting list'); setAdding(false); setF({ ...f, name: '', phone: '', note: '' }); },
   });
   const status = useMutation({ mutationFn: (x: { id: string; s: string }) => rpc('set_waitlist_status', { p_centre: centre.id, p_entry: x.id, p_status: x.s }), onSuccess: refresh });
@@ -586,7 +610,7 @@ function WaitlistSheet({ data, onClose }: { data: FloorState; onClose: () => voi
           <form className="stack lg" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
             <div className="grid-2">
               <Field label="Name"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus /></Field>
-              <Field label="Mobile (to message when ready)"><input className="input" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+              <Field label={centre.require_customer ? 'Mobile' : 'Mobile (to message when ready)'}><input className="input" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} data-testid="wait-phone" /></Field>
             </div>
             <div className="grid-2">
               <Field label="Wants"><select className="input" value={f.activity} onChange={(e) => setF({ ...f, activity: e.target.value })}>
@@ -595,7 +619,7 @@ function WaitlistSheet({ data, onClose }: { data: FloorState; onClose: () => voi
             </div>
             <Field label="Note (optional)"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
             {add.error && <Notice tone="bad">{errorMessage(add.error)}</Notice>}
-            <button className="btn primary block xl" disabled={!f.name.trim() || add.isPending}>Add to waiting list</button>
+            <button className="btn primary block xl" disabled={!f.name.trim() || add.isPending || (centre.require_customer && f.phone.replace(/\D/g, '').length < 10)}>Add to waiting list</button>
           </form>
         ) : <button className="btn block" onClick={() => setAdding(true)}><Plus size={18} /> Add someone</button>}
       </div>

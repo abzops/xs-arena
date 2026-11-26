@@ -10,12 +10,14 @@ export type Centre = {
   open_time: string; close_time: string; slot_minutes: number; booking_enabled: boolean; booking_note: string | null;
   booking_advance_bp: number; booking_hold_minutes: number; booking_days_ahead: number; booking_durations: number[]; booking_lead_minutes: number;
   invoice_prefix: string; invoice_seq: number; customer_seq: number; status: string; onboarded_at: string | null; created_at: string;
+  /** New customers must give name + phone before a game or waiting-list entry (pilot feedback, on by default). */
+  require_customer: boolean;
 };
 export type Subscription = {
   centre_id: string; plan: PlanCode; status: 'trialing' | 'active' | 'past_due' | 'cancelled'; trial_ends_at: string; paid_until: string | null;
 };
 export type Staff = {
-  id: string; centre_id: string; user_id: string | null; role: Role; display_name: string; title: string | null; phone: string | null; email: string | null; username: string | null;
+  id: string; centre_id: string; user_id: string | null; role: Role; display_name: string; title: string | null; phone: string | null; email: string | null; username: string | null; guide_seen_at?: string | null;
   color: string; sort: number; status: 'active' | 'inactive';
 };
 export type Customer = {

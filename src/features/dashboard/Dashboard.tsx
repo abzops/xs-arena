@@ -96,11 +96,13 @@ export function Dashboard() {
           <span className={`st-value num ${s.dues_paise > 0 ? 'due' : ''}`}>{formatINR(s.dues_paise)}</span>
           <span className="st-sub">balance to collect</span>
         </PushLink>
-        <PushLink className="stat" to={`${base}/snacks?low=1`}>
-          <span className="st-label"><Package size={16} className={s.low_stock > 0 ? 'tone-warn' : undefined} />Low stock</span>
-          <span className="st-value num">{s.low_stock}</span>
-          <span className="st-sub">snacks to reorder</span>
-        </PushLink>
+        {hasFeature('snacks') && (
+          <PushLink className="stat" to={`${base}/snacks?low=1`}>
+            <span className="st-label"><Package size={16} className={s.low_stock > 0 ? 'tone-warn' : undefined} />Low stock</span>
+            <span className="st-value num">{s.low_stock}</span>
+            <span className="st-sub">snacks to reorder</span>
+          </PushLink>
+        )}
         <PushLink className="stat" to={`${base}/customers`}>
           <span className="st-label"><UserPlus size={16} />New customers</span>
           <span className="st-value num">{s.new_customers_month}</span>

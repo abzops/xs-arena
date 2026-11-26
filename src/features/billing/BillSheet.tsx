@@ -55,7 +55,8 @@ export function usePoints(customerId: string | null, billPaise?: number) {
 }
 
 export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => void }) {
-  const { centre, can } = useCentre();
+  const { centre, can, hasFeature } = useCentre();
+  const snacksOn = hasFeature('snacks');
   const qc = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
@@ -73,6 +74,7 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
 
   const products = useQuery({
     queryKey: ['products', centre.id, 'sale'],
+    enabled: snacksOn,
     queryFn: async () => {
       const { data, error } = await supabase.from('products').select('*').eq('centre_id', centre.id).eq('status', 'active').eq('kind', 'retail').order('name');
       if (error) throw error;
@@ -174,10 +176,10 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
           </div>
 
           <div className="row">
-            <button className="btn small" onClick={() => setSnacks((v) => !v)}><Plus size={16} /> Snacks & drinks</button>
+            {snacksOn && <button className="btn small" onClick={() => setSnacks((v) => !v)}><Plus size={16} /> Snacks & drinks</button>}
             <button className="btn small ghost" onClick={() => setCustom(true)}><Plus size={16} /> Other item</button>
           </div>
-          {snacks && (
+          {snacksOn && snacks && (
             <div className="snack-grid">
               {(products.data ?? []).map((p) => (
                 <button key={p.id} className="btn" disabled={addItem.isPending} onClick={() => addItem.mutate({ product: p.id })}>

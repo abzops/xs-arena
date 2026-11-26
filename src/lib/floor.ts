@@ -23,6 +23,10 @@ export type Resource = {
   id: string; floor_id: string; activity_id: string; name: string; shape: 'rect' | 'round' | 'polygon'; x: number; y: number; w: number; h: number;
   rotation: number; points: [number, number][] | null; capacity: number; online_bookable: boolean; status: 'active' | 'out_of_service';
   session: LiveSession | null;
+  /** Games installed on this console (owner sets them in Assets). */
+  games?: string[];
+  /** Open maintenance tickets on this table/console (staff view only). */
+  open_tickets?: number | null;
 };
 export type WaitEntry = { id: string; activity_id: string; name: string; phone: string | null; party_size: number; note: string | null; status: 'waiting' | 'notified'; created_at: string };
 export type OpenTab = { id: string; label: string | null; opened_at: string; customer: string | null; live: boolean };

@@ -14,7 +14,7 @@ import { TvSettings } from '../tv/TvSettings';
 import { Link } from 'react-router';
 
 export function SettingsPage() {
-  const { centre, can, role, plan, subscription } = useCentre();
+  const { centre, can, role, plan, subscription, hasFeature } = useCentre();
   const qc = useQueryClient();
   const toast = useToast();
   const owner = can('settings.manage');
@@ -22,6 +22,7 @@ export function SettingsPage() {
     name: centre.name, phone: centre.phone ?? '', email: centre.email ?? '', address: centre.address ?? '', city: centre.city ?? '',
     open_time: centre.open_time.slice(0, 5), close_time: centre.close_time.slice(0, 5), upi_id: centre.upi_id ?? '', gst_enabled: centre.gst_enabled, gstin: centre.gstin ?? '',
     gst_pct: String(centre.gst_rate_bp / 100), prices_include_tax: centre.prices_include_tax, invoice_prefix: centre.invoice_prefix,
+    require_customer: centre.require_customer,
   });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
 
@@ -34,7 +35,8 @@ export function SettingsPage() {
         name: f.name.trim(), phone: f.phone || null, email: f.email || null, address: f.address || null, city: f.city || null,
         open_time: f.open_time, close_time: f.close_time, upi_id: f.upi_id.trim() || null, gst_enabled: f.gst_enabled, gstin: f.gstin ? f.gstin.toUpperCase() : null,
         gst_rate_bp: Math.round(Number(f.gst_pct) * 100), prices_include_tax: f.prices_include_tax,
-        invoice_prefix: f.invoice_prefix.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'INV', updated_at: new Date().toISOString(),
+        invoice_prefix: f.invoice_prefix.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'INV', require_customer: f.require_customer,
+        updated_at: new Date().toISOString(),
       }).eq('id', centre.id);
       if (error) throw error;
     },
@@ -62,9 +64,18 @@ export function SettingsPage() {
       {can('loyalty.manage') && <LoyaltySettings />}
       {owner && <TvSettings />}
 
-      <section className="card row" style={{ justifyContent: 'space-between' }}>
+      <section className="card stack" data-testid="plan-card">
         <div><h2>Plan</h2><p className="muted" style={{ fontSize: 'var(--t-sm)' }}>
           XS Arena {PLAN_LABEL[plan]}{subscription?.status === 'trialing' ? ` · free trial until ${new Date(subscription.trial_ends_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}</p></div>
+        <div className="addon-row">
+          <div><b>Snacks & stock add-on</b>
+            <p className="muted" style={{ margin: 0, fontSize: 'var(--t-sm)' }}>Sell snacks and drinks on the bill, track stock and get low-stock alerts.</p></div>
+          {hasFeature('snacks')
+            ? <span className="badge ok" data-testid="addon-snacks">On</span>
+            : owner
+              ? <a className="btn small" data-testid="addon-snacks" href={`mailto:support@xelorsoft.com?subject=${encodeURIComponent(`Snacks add-on for ${centre.name}`)}&body=${encodeURIComponent(`Please add the Snacks & stock add-on for ${centre.name} (${centre.slug}).`)}`}>Add to my plan</a>
+              : <span className="badge neutral" data-testid="addon-snacks">Off</span>}
+        </div>
       </section>
 
       {owner ? (
@@ -80,6 +91,14 @@ export function SettingsPage() {
               <Field label="City"><input className="input" value={f.city} onChange={set('city')} /></Field>
             </div>
             <Field label="Email"><input className="input" type="email" value={f.email} onChange={set('email')} /></Field>
+          </section>
+          <section className="card stack lg">
+            <h2>Customers</h2>
+            <label className="check-row" style={{ padding: 0 }}>
+              <input type="checkbox" checked={f.require_customer} data-testid="require-customer" onChange={(e) => setF({ ...f, require_customer: e.target.checked })} />
+              <span className="grow">Ask every new customer for name and mobile
+                <span className="muted" style={{ display: 'block', fontSize: 'var(--t-sm)' }}>Staff can't start a game or add someone to the waiting list without them. Builds your customer list for offers.</span></span>
+            </label>
           </section>
           <section className="card stack lg">
             <h2>Hours and payments</h2>

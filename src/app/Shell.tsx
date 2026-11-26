@@ -1,10 +1,12 @@
 import {
-  Banknote, Home, IndianRupee, LayoutGrid, LogOut, Menu, Package, PencilRuler, Receipt, Settings, Sparkles, Users, UsersRound, CalendarCheck, Car, ClipboardList, Megaphone, Wallet,
+  Banknote, Boxes, ChevronDown, CircleHelp, Home, IndianRupee, LayoutGrid, LogOut, Menu, Package, PencilRuler, Receipt, Settings, SlidersHorizontal, Sparkles, Users,
+  UsersRound, CalendarCheck, Car, ClipboardList, Megaphone, Wallet, Wrench, Grip,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { AiOrb } from '../features/ai/Orb';
 import { AppearanceButton, AppearanceControl } from '../components/Appearance';
+import { Guide } from '../components/Guide';
 import { Logo, Notice, Sheet } from '../components/ui';
 import { daysBetween, todayInCentre } from '../lib/dates';
 import { setTransition } from '../lib/motion';
@@ -12,26 +14,33 @@ import { supabase } from '../lib/supabase';
 import { ROLE_LABEL } from '../lib/types';
 import { useCentre } from './centre';
 
-type NavItem = { to: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number }>; perm?: string; feature?: string };
+type NavGroup = 'daily' | 'more' | 'setup';
+type NavItem = { to: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number }>; perm?: string; feature?: string; group: NavGroup };
 
+// Pilot feedback (25 Nov): a long menu looked hard to learn. The everyday six stay on top; the rest is folded away.
 const NAV: NavItem[] = [
-  { to: '', label: 'Home', icon: Home },
-  { to: 'floor', label: 'Floor', icon: LayoutGrid, perm: 'floor.operate' },
-  { to: 'ai', label: 'XS AI', icon: Sparkles, perm: 'floor.operate', feature: 'xs_ai' },
-  { to: 'bookings', label: 'Bookings', icon: CalendarCheck, perm: 'floor.operate' },
-  { to: 'bills', label: 'Bills', icon: Receipt, perm: 'billing.create' },
-  { to: 'customers', label: 'Customers', icon: Users },
-  { to: 'offers', label: 'Send offer', icon: Megaphone, perm: 'customers.manage' },
-  { to: 'shift', label: 'Shift & cash', icon: Banknote, perm: 'floor.operate' },
-  { to: 'snacks', label: 'Snacks', icon: Package },
-  { to: 'rc', label: 'RC fleet', icon: Car, perm: 'floor.operate', feature: 'rc_fleet' },
-  { to: 'expenses', label: 'Expenses', icon: Wallet, perm: 'expenses.manage' },
-  { to: 'day', label: 'Day summary', icon: ClipboardList, perm: 'reports.view' },
-  { to: 'prices', label: 'Prices', icon: IndianRupee, perm: 'pricing.manage' },
-  { to: 'designer', label: 'Floor designer', icon: PencilRuler, perm: 'floor.design' },
-  { to: 'team', label: 'Team', icon: UsersRound },
-  { to: 'settings', label: 'Settings', icon: Settings },
+  { to: '', label: 'Home', icon: Home, group: 'daily' },
+  { to: 'floor', label: 'Floor', icon: LayoutGrid, perm: 'floor.operate', group: 'daily' },
+  { to: 'ai', label: 'XS AI', icon: Sparkles, perm: 'floor.operate', feature: 'xs_ai', group: 'daily' },
+  { to: 'bookings', label: 'Bookings', icon: CalendarCheck, perm: 'floor.operate', group: 'daily' },
+  { to: 'bills', label: 'Bills', icon: Receipt, perm: 'billing.create', group: 'daily' },
+  { to: 'customers', label: 'Customers', icon: Users, group: 'daily' },
+  { to: 'shift', label: 'Shift & cash', icon: Banknote, perm: 'floor.operate', group: 'more' },
+  { to: 'repairs', label: 'Repairs', icon: Wrench, perm: 'floor.operate', group: 'more' },
+  { to: 'assets', label: 'Assets', icon: Boxes, group: 'more' },
+  { to: 'snacks', label: 'Snacks', icon: Package, feature: 'snacks', group: 'more' },
+  { to: 'rc', label: 'RC fleet', icon: Car, perm: 'floor.operate', feature: 'rc_fleet', group: 'more' },
+  { to: 'offers', label: 'Send offer', icon: Megaphone, perm: 'customers.manage', group: 'more' },
+  { to: 'expenses', label: 'Expenses', icon: Wallet, perm: 'expenses.manage', group: 'more' },
+  { to: 'day', label: 'Day summary', icon: ClipboardList, perm: 'reports.view', group: 'more' },
+  { to: 'prices', label: 'Prices', icon: IndianRupee, perm: 'pricing.manage', group: 'setup' },
+  { to: 'designer', label: 'Floor designer', icon: PencilRuler, perm: 'floor.design', group: 'setup' },
+  { to: 'team', label: 'Team', icon: UsersRound, perm: 'staff.manage', group: 'setup' },
+  { to: 'settings', label: 'Settings', icon: Settings, group: 'setup' },
 ];
+const GROUP_LABEL: Record<Exclude<NavGroup, 'daily'>, string> = { more: 'More tools', setup: 'Setup' };
+const GROUP_ICON = { more: Grip, setup: SlidersHorizontal };
+const OPEN_KEY = 'xs-nav-open';
 
 // Transparent badge: black on light backgrounds, white on dark (brand rule).
 const mark = `${import.meta.env.BASE_URL}brand/badge-black.svg`;
@@ -47,6 +56,15 @@ export function Shell() {
   const base = `/s/${centre.slug}`;
   const link = (n: NavItem) => (n.to ? `${base}/${n.to}` : base);
   const onOverflowRoute = overflow.some((n) => location.pathname.startsWith(link(n)));
+  // Folded groups open when you're on one of their pages, or when you opened them before.
+  const [openGroups, setOpenGroups] = useState<NavGroup[]>(() => { try { return JSON.parse(localStorage.getItem(OPEN_KEY) ?? '[]'); } catch { return []; } });
+  const toggleGroup = (g: NavGroup) => setOpenGroups((cur) => {
+    const next = cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g];
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+    return next;
+  });
+  const groupActive = (g: NavGroup) => items.some((n) => n.group === g && n.to && location.pathname.startsWith(link(n)));
+  const startGuide = () => window.dispatchEvent(new CustomEvent('xs-guide'));
   const trialDays = subscription?.status === 'trialing'
     ? Math.max(0, daysBetween(todayInCentre(centre.timezone), subscription.trial_ends_at.slice(0, 10)))
     : null;
@@ -91,12 +109,34 @@ export function Shell() {
           <span>XS Arena · {ROLE_LABEL[role]}</span>
           {trialDays !== null && <span>Trial ends in {trialDays} day{trialDays === 1 ? '' : 's'}</span>}
         </div>
-        {items.map((n) => (
-          <NavLink key={n.label} to={link(n)} end={!n.to} onClick={tab} title={n.label} className={n.to === 'ai' ? 'nav-ai' : undefined}>
+        {items.filter((n) => n.group === 'daily').map((n) => (
+          <NavLink key={n.label} to={link(n)} end={!n.to} onClick={tab} title={n.label} className={n.to === 'ai' ? 'nav-ai' : undefined} data-guide={`nav-${n.to || 'home'}`}>
             <n.icon size={20} strokeWidth={1.9} /> <span className="nav-label">{n.label}</span>
           </NavLink>
         ))}
+        {(['more', 'setup'] as const).map((g) => {
+          const list = items.filter((n) => n.group === g);
+          if (!list.length) return null;
+          const open = openGroups.includes(g) || groupActive(g);
+          const Icon = GROUP_ICON[g];
+          return (
+            <div key={g} className={`nav-group${open ? ' open' : ''}`}>
+              <button className="nav-group-head" onClick={() => toggleGroup(g)} aria-expanded={open} title={GROUP_LABEL[g]} data-guide={`group-${g}`}>
+                <Icon size={18} strokeWidth={1.9} /> <span className="nav-label">{GROUP_LABEL[g]}</span>
+                <ChevronDown size={16} className="nav-chev" aria-hidden />
+              </button>
+              {open && list.map((n) => (
+                <NavLink key={n.label} to={link(n)} onClick={tab} title={n.label} data-guide={`nav-${n.to}`}>
+                  <n.icon size={20} strokeWidth={1.9} /> <span className="nav-label">{n.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
         <div className="grow" />
+        <button className="signout" onClick={startGuide} title="How to use XS Arena" data-guide="guide">
+          <CircleHelp size={20} strokeWidth={1.9} /> <span className="nav-label">How to use</span>
+        </button>
         <AppearanceButton className="signout" />
         <button className="signout" onClick={() => supabase.auth.signOut()} title="Sign out">
           <LogOut size={20} strokeWidth={1.9} /> <span className="nav-label">Sign out</span>
@@ -129,29 +169,46 @@ export function Shell() {
       <nav className="tabbar" aria-label="Main" ref={tabbar}>
         <span className="tab-indicator" ref={indicator} aria-hidden />
         {primary.map((n) => (
-          <NavLink key={n.label} to={link(n)} end={!n.to} onClick={tab} className={n.to === 'ai' ? 'nav-ai' : undefined}>
+          <NavLink key={n.label} to={link(n)} end={!n.to} onClick={tab} className={n.to === 'ai' ? 'nav-ai' : undefined} data-guide={`nav-${n.to || 'home'}`}>
             <n.icon size={23} strokeWidth={1.8} /> <span>{n.label}</span>
           </NavLink>
         ))}
-        <button onClick={() => setMore(true)} className={onOverflowRoute || more ? 'active' : ''} aria-haspopup="dialog">
+        <button onClick={() => setMore(true)} className={onOverflowRoute || more ? 'active' : ''} aria-haspopup="dialog" data-guide="group-more">
           <Menu size={23} strokeWidth={1.8} /> <span>More</span>
         </button>
       </nav>
 
+      <Guide />
       {more && (
         <Sheet title="More" onClose={() => setMore(false)}>
           <div className="appearance-row">
             <span>Appearance</span>
             <AppearanceControl />
           </div>
+          {(['daily', 'more', 'setup'] as const).map((g) => {
+            const list = overflow.filter((n) => n.group === g);
+            if (!list.length) return null;
+            return (
+              <div key={g} className="stack" style={{ gap: 6 }}>
+                {g !== 'daily' && <span className="more-group-label">{GROUP_LABEL[g]}</span>}
+                <ul className="list grouped">
+                  {list.map((n) => (
+                    <li key={n.label}>
+                      <NavLink className="item" to={link(n)} onClick={() => { tab(); setMore(false); }}>
+                        <n.icon size={20} /> <span className="main-col"><span className="title">{n.label}</span></span>
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
           <ul className="list grouped">
-            {overflow.map((n) => (
-              <li key={n.label}>
-                <NavLink className="item" to={link(n)} onClick={() => { tab(); setMore(false); }}>
-                  <n.icon size={20} /> <span className="main-col"><span className="title">{n.label}</span></span>
-                </NavLink>
-              </li>
-            ))}
+            <li>
+              <button className="item" onClick={() => { setMore(false); startGuide(); }}>
+                <CircleHelp size={20} /> <span className="main-col"><span className="title">How to use XS Arena</span></span>
+              </button>
+            </li>
             <li>
               <button className="item" onClick={() => supabase.auth.signOut()}>
                 <LogOut size={20} /> <span className="main-col"><span className="title">Sign out</span></span>

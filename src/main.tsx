@@ -40,6 +40,8 @@ const CustomerDetail = lazy(() => import('./features/customers/CustomerDetail').
 const TeamPage = lazy(() => import('./features/team/TeamPage').then((m) => ({ default: m.TeamPage })));
 const InventoryPage = lazy(() => import('./features/inventory/InventoryPage').then((m) => ({ default: m.InventoryPage })));
 const ExpensesPage = lazy(() => import('./features/expenses/ExpensesPage').then((m) => ({ default: m.ExpensesPage })));
+const AssetsPage = lazy(() => import('./features/assets/AssetsPage').then((m) => ({ default: m.AssetsPage })));
+const TicketsPage = lazy(() => import('./features/assets/tickets').then((m) => ({ default: m.TicketsPage })));
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
 // Refuse to render inside a frame.
@@ -108,9 +110,10 @@ function CentreLayout() {
   return <CentreProvider value={ctx.data}><Shell /></CentreProvider>;
 }
 
-function Allow({ perm, children }: { perm?: string; children: ReactNode }) {
-  const { can } = useCentre();
+function Allow({ perm, feature, children }: { perm?: string; feature?: string; children: ReactNode }) {
+  const { can, hasFeature } = useCentre();
   if (perm && !can(perm)) return <Empty title="No access">Ask the centre owner for access.</Empty>;
+  if (feature && !hasFeature(feature)) return <Empty title="Not on your plan">This is an add-on. The owner can add it from Settings → Plan.</Empty>;
   return <Suspense fallback={<Loading rows={5} />}>{children}</Suspense>;
 }
 
@@ -137,11 +140,13 @@ const router = createBrowserRouter(
           <Route path="shift" element={<Allow perm="floor.operate"><ShiftPage /></Allow>} />
           <Route path="customers" element={<Allow><CustomersPage /></Allow>} />
           <Route path="customers/:customerId" element={<Allow><CustomerDetail /></Allow>} />
-          <Route path="snacks" element={<Allow><InventoryPage /></Allow>} />
+          <Route path="snacks" element={<Allow feature="snacks"><InventoryPage /></Allow>} />
           <Route path="day" element={<Allow perm="reports.view"><DaySummaryPage /></Allow>} />
           <Route path="offers" element={<Allow perm="customers.manage"><OffersPage /></Allow>} />
           <Route path="rc" element={<Allow perm="floor.operate"><RcPage /></Allow>} />
           <Route path="expenses" element={<Allow perm="expenses.manage"><ExpensesPage /></Allow>} />
+          <Route path="assets" element={<Allow><AssetsPage /></Allow>} />
+          <Route path="repairs" element={<Allow perm="floor.operate"><TicketsPage /></Allow>} />
           <Route path="team" element={<Allow><TeamPage /></Allow>} />
           <Route path="settings" element={<Allow><SettingsPage /></Allow>} />
           <Route path="*" element={<Empty title="Page not found"><Link className="btn primary" to="..">Go to Home</Link></Empty>} />

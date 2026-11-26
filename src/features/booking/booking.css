@@ -110,3 +110,5 @@
 .field-error { color: var(--bad); font-weight: 600; }
 .ticket-facts .span-2 { grid-column: 1 / -1; }
 .book-live-head .btn { min-height: 36px; }
+.ticket-game { margin: 2px 0 0; font-weight: 600; font-size: var(--t-md); }
+.chip[aria-pressed="true"] .muted { color: inherit; opacity: 0.75; }
