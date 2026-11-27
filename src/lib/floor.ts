@@ -1,5 +1,6 @@
 // Shared types and helpers for the floor designer, live floor, bills and TV display.
 import { useEffect, useState } from 'react';
+import { CATALOGUE } from './catalogue';
 import { formatINR } from './money';
 
 export type BillingMode = 'per_minute' | 'hourly_block' | 'per_frame' | 'per_slot';
@@ -112,6 +113,8 @@ export const KIND_LABEL: Record<Activity['kind'], string> = { table: 'Table', co
 /** Default size (floor units ≈ cm) for a new item of an activity. */
 export function defaultSize(a: Activity): { w: number; h: number; capacity: number; shape: Resource['shape'] } {
   const n = a.name.toLowerCase();
+  const known = CATALOGUE.find((c) => c.name.toLowerCase() === n);
+  if (known) return { ...known.size, capacity: known.capacity };
   if (n.includes('snooker')) return { w: 370, h: 190, capacity: 4, shape: 'rect' };
   if (n.includes('pool')) return { w: 260, h: 140, capacity: 4, shape: 'rect' };
   if (a.kind === 'console') return { w: 160, h: 110, capacity: 4, shape: 'rect' };

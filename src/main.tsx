@@ -42,6 +42,7 @@ const InventoryPage = lazy(() => import('./features/inventory/InventoryPage').th
 const ExpensesPage = lazy(() => import('./features/expenses/ExpensesPage').then((m) => ({ default: m.ExpensesPage })));
 const AssetsPage = lazy(() => import('./features/assets/AssetsPage').then((m) => ({ default: m.AssetsPage })));
 const TicketsPage = lazy(() => import('./features/assets/tickets').then((m) => ({ default: m.TicketsPage })));
+const SetupPage = lazy(() => import('./features/setup/SetupPage').then((m) => ({ default: m.SetupPage })));
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
 // Refuse to render inside a frame.
@@ -149,6 +150,7 @@ const router = createBrowserRouter(
           <Route path="repairs" element={<Allow perm="floor.operate"><TicketsPage /></Allow>} />
           <Route path="team" element={<Allow><TeamPage /></Allow>} />
           <Route path="settings" element={<Allow><SettingsPage /></Allow>} />
+          <Route path="welcome" element={<Allow perm="settings.manage"><SetupPage /></Allow>} />
           <Route path="*" element={<Empty title="Page not found"><Link className="btn primary" to="..">Go to Home</Link></Empty>} />
         </Route>
       </Route>

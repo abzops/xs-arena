@@ -18,7 +18,7 @@ const ROLE_HINT: Record<Role, string> = {
 };
 const COLORS = ['#2A78D6', '#EB6834', '#1BAF7A', '#EDA100', '#9B5DE5', '#E0457B', '#00A3B4', '#6B7A8F'];
 
-export function TeamPage() {
+export function TeamPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { can, me } = useCentre();
   const { team, loading, error } = useTeam();
   const [editing, setEditing] = useState<Partial<Staff> | null>(null);
@@ -29,11 +29,15 @@ export function TeamPage() {
   const list = [...team].sort((a, b) => (a.status === b.status ? a.sort - b.sort : a.status === 'active' ? -1 : 1));
   return (
     <div className="stack lg">
-      <div className="page-head">
-        <h1>Team</h1>
-        {manage && <button className="btn primary" onClick={() => setEditing({})} aria-label="Add team member"><Plus size={18} /> <span className="btn-text">Add member</span></button>}
-      </div>
-      <p className="muted">Add a staff member and XS Arena makes their username and password. Send it to them on WhatsApp — no email or sign-up needed.</p>
+      {embedded
+        ? manage && <button className="btn" style={{ justifySelf: 'start' }} onClick={() => setEditing({})}><Plus size={18} /> Add a staff member</button>
+        : <>
+          <div className="page-head">
+            <h1>Team</h1>
+            {manage && <button className="btn primary" onClick={() => setEditing({})} aria-label="Add team member"><Plus size={18} /> <span className="btn-text">Add member</span></button>}
+          </div>
+          <p className="muted">Add a staff member and XS Arena makes their username and password. Send it to them on WhatsApp — no email or sign-up needed.</p>
+        </>}
       {!list.length ? <div className="card"><Empty title="No team yet" /></div> : (
         <ul className="list card flush">
           {list.map((s) => (

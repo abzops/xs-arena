@@ -72,6 +72,15 @@ export function Shell() {
     : null;
   const tab = () => setTransition('tab');
   const navigate = useNavigate();
+  // New centre: the owner goes through "Set up your arena" first (once per visit; they can leave and come back)
+  const settingUp = !centre.onboarded_at && can('settings.manage');
+  const onSetup = location.pathname === `${base}/welcome`;
+  useEffect(() => {
+    if (!settingUp || onSetup) return;
+    const k = `xs-setup-shown-${centre.id}`;
+    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* private mode */ }
+    navigate(`${base}/welcome`, { replace: true });
+  }, [settingUp, onSetup, centre.id, base, navigate]);
   const aiOn = hasFeature('xs_ai') && can('floor.operate');
   const onAi = location.pathname === `${base}/ai`;
   // Ctrl/⌘ + K opens XS AI from anywhere
@@ -160,6 +169,12 @@ export function Shell() {
           {!canWrite && (
             <div style={{ marginBottom: 20 }}>
               <Notice tone="warn">This centre is suspended. You can view and export, but changes are paused.</Notice>
+            </div>
+          )}
+          {settingUp && !onSetup && (
+            <div className="setup-banner" data-testid="setup-banner">
+              <span>Your arena isn't fully set up yet.</span>
+              <Link className="btn small primary" to={`${base}/welcome`}>Continue setup</Link>
             </div>
           )}
           <Outlet />

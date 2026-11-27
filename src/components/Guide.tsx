@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router';
 // "How to use XS Arena": a short guided tour that points at each part of the menu, in English or Malayalam.
 // Opens by itself once for new team members (centre_staff.guide_seen_at is empty) and any time from "How to use".
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -31,7 +32,10 @@ export function Guide() {
     return () => window.removeEventListener('xs-guide', start);
   }, []);
   // first time for a new team member
-  useEffect(() => { if (!me.guide_seen_at) { const t = window.setTimeout(() => setOpen(true), 600); return () => window.clearTimeout(t); } }, [me.guide_seen_at]);
+  // (an owner setting up a new centre sees it after the setup steps, from the last step)
+  const { pathname } = useLocation();
+  const settingUp = !centre.onboarded_at || pathname.endsWith('/welcome');
+  useEffect(() => { if (!me.guide_seen_at && !settingUp) { const t = window.setTimeout(() => setOpen(true), 600); return () => window.clearTimeout(t); } }, [me.guide_seen_at, settingUp]);
 
   const step = steps[Math.min(i, steps.length - 1)];
   useLayoutEffect(() => {

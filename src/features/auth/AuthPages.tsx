@@ -237,7 +237,7 @@ function SetupCentreForm() {
   });
   return (
     <AuthLayout back={false}>
-      <div className="ios-titles"><h1>Set up your centre</h1><p className="muted">Your 14-day trial starts now. We add a starter snack list you can edit.</p></div>
+      <div className="ios-titles"><h1>Set up your centre</h1><p className="muted">Your 14-day trial starts now. Next, a few quick steps set up your tables, consoles and prices.</p></div>
       <form className="ios-form" onSubmit={(e) => { e.preventDefault(); create.mutate(); }}>
         <div className="group">
           <Row label="Centre name" value={name} onChange={setName} autoComplete="organization" />
