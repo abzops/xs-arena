@@ -171,7 +171,7 @@ function ItemsStep({ onBack, onNext }: { onBack: () => void; onNext: () => void 
     <section className="stack lg">
       <div className="card stack">
         <h1>What's in your arena?</h1>
-        <p className="muted" style={{ margin: 0 }}>Tap + for each thing you have. Prices are filled in with typical Kerala rates. Change them to yours.</p>
+        <p className="muted" style={{ margin: 0 }}>Tap + for each thing your arena has. Prices are filled in with typical Kerala rates. Change them to yours.</p>
       </div>
       {groups.map((g) => (
         <div key={g} className="stack">
