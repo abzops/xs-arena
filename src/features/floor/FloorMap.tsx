@@ -3,6 +3,7 @@ import { useId, useRef, type PointerEvent as RPE, type ReactNode } from 'react';
 import { formatINR } from '../../lib/money';
 import { ArtDefs, ItemArt, Outline } from './Art';
 import { FIXTURE_LABEL, playedSeconds, timerText, toneOf, type Activity, type Fixture, type Floor, type Resource, type Tone } from '../../lib/floor';
+import './floor.css';   // the map brings its own look, so it renders the same on every page (floor, designer, setup steps)
 
 export const TONE_FILL: Record<Tone, string> = {
   free: 'var(--fm-free)', playing: 'var(--fm-playing)', paused: 'var(--fm-paused)', soon: 'var(--fm-soon)', over: 'var(--fm-over)', off: 'var(--fm-off)',
