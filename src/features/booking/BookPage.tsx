@@ -1,7 +1,8 @@
+import { mediaUrl } from '../../lib/media';
 // Public booking page at /b/:slug. No sign-in: pick a game, day, length and time; name + phone only after "Book".
 // Customers book a game type, not a table — the centre seats them at any free table of that game.
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Gamepad2 } from 'lucide-react';
+import { AtSign, Gamepad2, MapPin } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Logo, Notice, Sheet } from '../../components/ui';
 import { addDays, formatDay, time12, todayInCentre } from '../../lib/dates';
@@ -104,13 +105,22 @@ export function BookPage() {
   return (
     <main className="book-page">
       <div className="book-wrap">
-        <header className="book-head">
+        {c.cover_path && <div className="book-cover" style={{ backgroundImage: `url(${mediaUrl(c.cover_path)})` }} data-testid="book-cover" />}
+        <header className={`book-head ${c.cover_path ? 'has-cover' : ''}`}>
+          {c.logo_path && <img className="book-logo" src={mediaUrl(c.logo_path) ?? ''} alt={`${c.name} logo`} data-testid="book-logo" />}
           <p className="book-eyebrow">Book a game</p>
           <h1>{c.name}</h1>
           <p className="muted">
             {[c.address, c.city].filter(Boolean).join(', ')}
             {(c.address || c.city) && ' · '}Open {time12(c.open_time.slice(0, 5))} – {time12(c.close_time.slice(0, 5))}
           </p>
+          {c.about && <p className="book-about" data-testid="book-about">{c.about}</p>}
+          {(c.maps_url || c.instagram) && (
+            <div className="row wrap">
+              {c.maps_url && <a className="btn small" href={c.maps_url} target="_blank" rel="noreferrer"><MapPin size={16} /> Directions</a>}
+              {c.instagram && <a className="btn small" href={`https://instagram.com/${c.instagram}`} target="_blank" rel="noreferrer" data-testid="book-instagram"><AtSign size={16} /> {c.instagram}</a>}
+            </div>
+          )}
           {c.note && <p className="book-note">{c.note}</p>}
           {last && <Link className="btn small" to={`/t/${last}`}>See my booking</Link>}
         </header>

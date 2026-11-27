@@ -1,3 +1,4 @@
+import { mediaUrl } from '../../lib/media';
 // The bill for a group (tab): games priced live, snacks, customer, discount, split payments, UPI QR, close.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Minus, Plus, Trash2, UserPlus } from 'lucide-react';
@@ -263,20 +264,29 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
   );
 }
 
-/** UPI QR with the exact amount; the customer scans it with any UPI app. */
+/** UPI QR: the exact-amount QR we draw from the UPI ID, or the centre's own uploaded QR with the amount shown big. */
 export function UpiQr({ amount, note }: { amount: number; note: string }) {
   const { centre } = useCentre();
   const [svg, setSvg] = useState('');
-  const link = centre.upi_id ? upiLink(centre.upi_id, centre.name, amount, note) : null;
+  const own = centre.upi_mode === 'own' && centre.upi_qr_path ? mediaUrl(centre.upi_qr_path) : null;
+  const link = !own && centre.upi_id ? upiLink(centre.upi_id, centre.upi_payee || centre.name, amount, note) : null;
   useEffect(() => {
     if (!link) return;
     let live = true;
     QRCode.toString(link, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }).then((s) => { if (live) setSvg(s); });
     return () => { live = false; };
   }, [link]);
-  if (!link) return <Notice tone="warn">Add your UPI ID in Settings to show a payment QR with the exact amount.</Notice>;
+  if (own) return (
+    <div className="qr-box" data-testid="upi-qr-own">
+      <span style={{ fontSize: 'var(--t-sm)' }}>Scan and enter</span>
+      <b className="num upi-own-amount">{formatINR(amount)}</b>
+      <img src={own} alt={`UPI QR of ${centre.name}`} className="upi-own-img" />
+      {centre.upi_id && <span className="muted" style={{ fontSize: 'var(--t-sm)' }}>{centre.upi_id}</span>}
+    </div>
+  );
+  if (!link) return <Notice tone="warn">Add your UPI ID or upload your UPI QR in Settings to show a payment QR.</Notice>;
   return (
-    <div className="qr-box">
+    <div className="qr-box" data-testid="upi-qr-amount">
       <div aria-label={`UPI QR code for ${formatINR(amount)}`} role="img" dangerouslySetInnerHTML={{ __html: svg }} />
       <b className="num">{formatINR(amount)}</b>
       <span style={{ fontSize: 'var(--t-sm)' }}>{centre.upi_id} · scan with any UPI app</span>

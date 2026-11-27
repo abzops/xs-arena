@@ -13,6 +13,8 @@ import { setTransition } from '../lib/motion';
 import { supabase } from '../lib/supabase';
 import { ROLE_LABEL } from '../lib/types';
 import { useCentre } from './centre';
+import { Avatar } from '../features/settings/CentreProfile';
+import { mediaUrl } from '../lib/media';
 
 type NavGroup = 'daily' | 'more' | 'setup';
 type NavItem = { to: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number }>; perm?: string; feature?: string; group: NavGroup };
@@ -47,7 +49,7 @@ const mark = `${import.meta.env.BASE_URL}brand/badge-black.svg`;
 const markOnDark = `${import.meta.env.BASE_URL}brand/badge-white.svg`;
 
 export function Shell() {
-  const { centre, role, can, canWrite, subscription, hasFeature } = useCentre();
+  const { centre, role, can, canWrite, subscription, hasFeature, me } = useCentre();
   const [more, setMore] = useState(false);
   const location = useLocation();
   const items = NAV.filter((n) => (!n.perm || can(n.perm)) && (!n.feature || hasFeature(n.feature)));
@@ -134,6 +136,10 @@ export function Shell() {
           );
         })}
         <div className="grow" />
+        <Link className="side-me" to={`/s/${centre.slug}/settings#my-profile`} onClick={tab} title="My profile" data-testid="side-me">
+          <Avatar name={me.display_name} path={me.avatar_path} color={me.color} size={30} />
+          <span className="grow nav-label">{me.display_name}</span>
+        </Link>
         <button className="signout" onClick={startGuide} title="How to use XS Arena" data-guide="guide">
           <CircleHelp size={20} strokeWidth={1.9} /> <span className="nav-label">How to use</span>
         </button>
@@ -147,6 +153,7 @@ export function Shell() {
         <header className="topbar">
           <img className="brand-mark only-light" src={mark} alt="" width={26} height={26} />
           <img className="brand-mark only-dark" src={markOnDark} alt="" width={26} height={26} />
+          {centre.logo_path && <img className="topbar-logo" src={mediaUrl(centre.logo_path) ?? ''} alt="" width={26} height={26} />}
           <span className="gym">{centre.name}</span>
         </header>
         <main className="main">

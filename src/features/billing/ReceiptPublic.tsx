@@ -1,3 +1,4 @@
+import { mediaUrl } from '../../lib/media';
 // Public receipt: the link the customer gets on WhatsApp. No login; loaded by its secret token.
 import { useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
@@ -16,7 +17,7 @@ type Receipt = {
   tax_paise: number; gst_rate_bp: number; total_paise: number; paid_paise: number; points_redeemed: number; points_paise: number;
   lines: { games: ReceiptGame[]; items: ReceiptItem[] };
   customer: string | null;
-  centre: { name: string; slug: string; phone: string | null; address: string | null; city: string | null; timezone: string; gstin: string | null };
+  centre: { name: string; slug: string; phone: string | null; address: string | null; city: string | null; timezone: string; gstin: string | null; logo_path?: string | null; instagram?: string | null };
 };
 
 export function ReceiptPublic() {
@@ -53,6 +54,7 @@ function Body({ r }: { r: Receipt }) {
   return (
     <>
       <article className="receipt">
+        {r.centre.logo_path && <img className="book-logo small" style={{ margin: '0 auto 6px', display: 'block' }} src={mediaUrl(r.centre.logo_path) ?? ''} alt="" data-testid="receipt-logo" />}
         <h2>{r.centre.name}</h2>
         <div className="r-meta">{[r.centre.address, r.centre.city, r.centre.phone].filter(Boolean).join(' · ')}{r.centre.gstin ? <><br />GSTIN {r.centre.gstin}</> : null}</div>
         <hr />

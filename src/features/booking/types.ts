@@ -21,6 +21,7 @@ export type PublicCentre = {
   name: string; slug: string; address: string | null; city: string | null; phone: string | null; timezone: string;
   open_time: string; close_time: string; slot_minutes: number; note: string | null; advance_bp: number; hold_minutes: number;
   days_ahead: number; durations: number[]; lead_minutes: number;
+  logo_path?: string | null; cover_path?: string | null; about?: string | null; maps_url?: string | null; instagram?: string | null;
 };
 export type BookingPageData = {
   server_time: string; centre: PublicCentre; activities: PublicActivity[]; floors: Floor[];

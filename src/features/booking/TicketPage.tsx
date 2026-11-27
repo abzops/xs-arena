@@ -1,3 +1,4 @@
+import { mediaUrl } from '../../lib/media';
 // Booking ticket at /t/:token — the customer's proof of booking. Staff scan the QR (this page's own link) to check in.
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
@@ -14,7 +15,8 @@ import { bookingLabel, ticketUrl, type Booking } from './types';
 
 type Ticket = {
   booking: Booking; can_cancel: boolean;
-  centre: { name: string; slug: string; address: string | null; city: string | null; phone: string | null; timezone: string; hold_minutes: number };
+  centre: { name: string; slug: string; address: string | null; city: string | null; phone: string | null; timezone: string; hold_minutes: number;
+    logo_path?: string | null; maps_url?: string | null; instagram?: string | null };
 };
 
 export function TicketPage() {
@@ -77,6 +79,7 @@ export function TicketPage() {
         {params.get('new') && live && <Notice tone="ok">You're booked! Show this screen at the counter.</Notice>}
         <article className={`ticket card ${live ? '' : 'ticket-off'}`}>
           <header>
+            {c.logo_path && <img className="book-logo small" src={mediaUrl(c.logo_path) ?? ''} alt={`${c.name} logo`} data-testid="ticket-logo" />}
             <p className="book-eyebrow">{c.name}</p>
             <h1>{b.activity}</h1>
             {b.game && <p className="ticket-game" data-testid="ticket-game">🎮 {b.game}</p>}
@@ -114,7 +117,7 @@ export function TicketPage() {
             </>
           )}
           {b.status === 'cancelled' && <Notice tone="info">This booking is cancelled. The time is free for others now.</Notice>}
-          {where && <a className="btn block" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${c.name}, ${where}`)}`} target="_blank" rel="noreferrer">Directions</a>}
+          {(where || c.maps_url) && <a className="btn block" href={c.maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${c.name}, ${where}`)}`} target="_blank" rel="noreferrer">Directions</a>}
           {c.phone && <a className="btn block" href={`tel:${c.phone}`}>Call {c.name}</a>}
           {t.can_cancel && !confirmCancel && <button type="button" className="btn block ghost" onClick={() => setConfirmCancel(true)}>Cancel booking</button>}
           {confirmCancel && (

@@ -2,10 +2,23 @@
 // Drawn on a canvas in the browser, 1080 px wide, with the CENTRE's name as the brand.
 // QR codes replace links, so nothing goes out as a bare link.
 import QRCode from 'qrcode';
+import { mediaUrl } from './media';
 import { formatINR } from './money';
 
 export type Lang = 'en' | 'ml';
-export type CardCentre = { name: string; address?: string | null; city?: string | null; phone?: string | null };
+export type CardCentre = { name: string; address?: string | null; city?: string | null; phone?: string | null; logo_path?: string | null };
+
+/** Load a stored picture for drawing; null if it can't load within 5 s (the image is still made, just without it). */
+export function loadImage(url: string | null | undefined): Promise<HTMLImageElement | null> {
+  if (!url) return Promise.resolve(null);
+  return new Promise((res) => {
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    const t = window.setTimeout(() => res(null), 5000);
+    img.onload = () => { window.clearTimeout(t); res(img); };
+    img.onerror = () => { window.clearTimeout(t); res(null); };
+    img.src = url;
+  });
+}
 
 const W = 1080;
 const PAD = 72;
@@ -75,20 +88,31 @@ class Card {
     this.x.beginPath(); this.x.moveTo(PAD, this.y); this.x.lineTo(W - PAD, this.y); this.x.stroke(); this.x.setLineDash([]); this.y += 18;
   }
   /** Dark header band with the centre's name — the centre's brand, not ours. */
-  header(centre: CardCentre, eyebrow: string) {
+  async header(centre: CardCentre, eyebrow: string) {
+    const logo = await loadImage(mediaUrl(centre.logo_path));
     const top = this.y;
     const where = [centre.address, centre.city].filter(Boolean).join(', ');
+    const LOGO = 132;
     this.y += 64;
     // measure first, then paint the band behind
-    const save = this.y;
     const nameLines = this.wrapCount(centre.name, 64, 700);
-    const h = 64 + 44 + nameLines * 84 + (where ? 48 : 0) + (centre.phone ? 44 : 0) + 56;
+    const h = 64 + (logo ? LOGO + 28 : 0) + 44 + nameLines * 84 + (where ? 48 : 0) + (centre.phone ? 44 : 0) + 56;
     this.x.fillStyle = BAND; this.x.fillRect(0, top, W, h);
     // soft accent glow
     const g = this.x.createRadialGradient(W - 120, top + 40, 10, W - 120, top + 40, 420);
     g.addColorStop(0, 'rgba(34,197,94,.28)'); g.addColorStop(1, 'rgba(34,197,94,0)');
     this.x.fillStyle = g; this.x.fillRect(0, top, W, h);
-    this.y = save;
+    if (logo) {
+      // the centre's logo on a white rounded tile, so dark and transparent logos both show
+      const lx = PAD, ly = this.y, r = 28;
+      this.x.save();
+      this.x.beginPath(); this.x.roundRect(lx, ly, LOGO, LOGO, r); this.x.fillStyle = '#FFFFFF'; this.x.fill(); this.x.clip();
+      const sc = Math.min((LOGO - 16) / logo.width, (LOGO - 16) / logo.height);
+      const dw = logo.width * sc, dh = logo.height * sc;
+      this.x.drawImage(logo, lx + (LOGO - dw) / 2, ly + (LOGO - dh) / 2, dw, dh);
+      this.x.restore();
+      this.y += LOGO + 28;
+    }
     this.text(eyebrow.toUpperCase(), { size: 28, weight: 700, color: ACCENT });
     this.space(8);
     this.text(centre.name, { size: 64, weight: 800, color: '#FFFFFF' });
@@ -107,6 +131,15 @@ class Card {
     this.y += 12;
     this.x.drawImage(q, (W - size) / 2, this.y);
     this.y += size + 8;
+    if (caption) this.text(caption, { size: 30, color: SUB, align: 'center' });
+  }
+  /** The centre's own uploaded QR picture, centred. */
+  picture(img: HTMLImageElement, size: number, caption?: string) {
+    const sc = Math.min(size / img.width, size / img.height);
+    const dw = img.width * sc, dh = img.height * sc;
+    this.y += 12;
+    this.x.drawImage(img, (W - dw) / 2, this.y, dw, dh);
+    this.y += dh + 8;
     if (caption) this.text(caption, { size: 30, color: SUB, align: 'center' });
   }
   footer(line: string) {
@@ -133,12 +166,12 @@ class Card {
 
 const L = {
   en: { receipt: 'Receipt', bill: 'Bill', total: 'Total', paid: 'Paid', due: 'Balance due', sub: 'Subtotal', disc: 'Discount', pts: 'Points used',
-    payUpi: 'Scan to pay by UPI', thanks: 'Thanks for playing! See you again 🎮', bookNext: 'Scan to book your next game', in: 'In', out: 'Out',
+    payUpi: 'Scan to pay by UPI', payOwn: (a: string) => `Scan with any UPI app and pay ${a}`, thanks: 'Thanks for playing! See you again 🎮', bookNext: 'Scan to book your next game', in: 'In', out: 'Out',
     ticket: 'Booking confirmed', code: 'Booking code', show: 'Show this QR at the counter', hold: (m: number) => `We keep your booking for ${m} min after your time.`,
     players: (n: number) => `${n} player${n > 1 ? 's' : ''}`, offer: 'Special offer', offerShow: 'Show this message at the counter',
     started: 'Game started', startedAt: 'Started at', until: 'Booked till', rate: 'Rate', enjoy: 'Have fun! 🎮', earned: (e: number, b: number) => `⭐ +${e} points · balance ${b}` },
   ml: { receipt: 'രസീത്', bill: 'ബിൽ', total: 'ആകെ', paid: 'അടച്ചത്', due: 'ബാക്കി', sub: 'തുക', disc: 'ഡിസ്കൗണ്ട്', pts: 'പോയിന്റ്',
-    payUpi: 'UPI വഴി അടയ്ക്കാൻ സ്കാൻ ചെയ്യൂ', thanks: 'കളിക്കാൻ വന്നതിന് നന്ദി! വീണ്ടും വരൂ 🎮', bookNext: 'അടുത്ത കളി ബുക്ക് ചെയ്യാൻ സ്കാൻ ചെയ്യൂ', in: 'തുടക്കം', out: 'അവസാനം',
+    payUpi: 'UPI വഴി അടയ്ക്കാൻ സ്കാൻ ചെയ്യൂ', payOwn: (a: string) => `ഏത് UPI ആപ്പിലും സ്കാൻ ചെയ്ത് ${a} അടയ്ക്കൂ`, thanks: 'കളിക്കാൻ വന്നതിന് നന്ദി! വീണ്ടും വരൂ 🎮', bookNext: 'അടുത്ത കളി ബുക്ക് ചെയ്യാൻ സ്കാൻ ചെയ്യൂ', in: 'തുടക്കം', out: 'അവസാനം',
     ticket: 'ബുക്കിംഗ് ഉറപ്പായി', code: 'ബുക്കിംഗ് കോഡ്', show: 'ഈ QR കൗണ്ടറിൽ കാണിക്കൂ', hold: (m: number) => `നിങ്ങളുടെ സമയത്തിന് ശേഷം ${m} മിനിറ്റ് വരെ ബുക്കിംഗ് നിലനിർത്തും.`,
     players: (n: number) => `${n} പേർ`, offer: 'സ്പെഷ്യൽ ഓഫർ', offerShow: 'ഈ മെസ്സേജ് കൗണ്ടറിൽ കാണിക്കൂ',
     started: 'കളി തുടങ്ങി', startedAt: 'തുടങ്ങിയത്', until: 'വരെ', rate: 'നിരക്ക്', enjoy: 'ആസ്വദിക്കൂ! 🎮', earned: (e: number, b: number) => `⭐ +${e} പോയിന്റ് · ആകെ ${b}` },
@@ -155,11 +188,15 @@ export type ReceiptCardData = {
   items: { name: string; qty: number; total_paise: number }[];
   subtotal: number; discount: number; pointsUsed?: number; pointsPaise?: number; tax: number; gstRate?: number; total: number; paid: number; methods?: string;
   earned?: { earned: number; balance: number } | null; upi?: string | null; bookingUrl?: string | null; voided?: boolean;
+  /** Name shown in the UPI app (defaults to the centre name). */
+  upiPayee?: string | null;
+  /** The centre's own uploaded QR (Settings → "My uploaded QR"): drawn instead of an exact-amount QR. */
+  upiQrPath?: string | null;
 };
 
 export async function receiptCard(d: ReceiptCardData): Promise<Blob> {
   const t = L[d.lang]; const k = new Card();
-  k.header(d.centre, t.receipt);
+  await k.header(d.centre, t.receipt);
   k.row(`${t.bill} ${d.billNo}`, `${day(d.createdAt, d.tz)}, ${time(d.createdAt, d.tz)}`, { size: 30, color: SUB });
   if (d.customer) k.text(d.customer, { size: 38, weight: 700 });
   k.rule();
@@ -180,8 +217,11 @@ export async function receiptCard(d: ReceiptCardData): Promise<Blob> {
   const due = d.voided ? 0 : d.total - d.paid;
   if (due > 0) k.row(t.due, formatINR(due), { size: 40, weight: 800, vcolor: '#C2410C' });
   if (d.earned && d.earned.earned) { k.space(8); k.text(t.earned(d.earned.earned, d.earned.balance), { size: 32, weight: 600, color: '#15803D' }); }
-  if (due > 0 && d.upi) {
-    const p = new URLSearchParams({ pa: d.upi, pn: d.centre.name.slice(0, 40), am: (due / 100).toFixed(2), cu: 'INR', tn: d.billNo });
+  const ownQr = due > 0 && d.upiQrPath ? await loadImage(mediaUrl(d.upiQrPath)) : null;
+  if (ownQr) {
+    k.rule(); k.picture(ownQr, 420, t.payOwn(formatINR(due)));
+  } else if (due > 0 && d.upi) {
+    const p = new URLSearchParams({ pa: d.upi, pn: (d.upiPayee || d.centre.name).slice(0, 40), am: (due / 100).toFixed(2), cu: 'INR', tn: d.billNo });
     k.rule(); await k.qr(`upi://pay?${p.toString()}`, 360, `${t.payUpi} · ${formatINR(due)}`);
   } else if (d.bookingUrl) {
     k.rule(); await k.qr(d.bookingUrl, 260, t.bookNext);
@@ -195,7 +235,7 @@ export async function ticketCard(d: {
   centre: CardCentre; tz: string; lang: Lang; activity: string; startsAt: string; minutes: number; party: number; name: string; code: string; qrText: string; holdMinutes?: number;
 }): Promise<Blob> {
   const t = L[d.lang]; const k = new Card();
-  k.header(d.centre, t.ticket);
+  await k.header(d.centre, t.ticket);
   k.text(d.activity, { size: 60, weight: 800 });
   k.text(`${day(d.startsAt, d.tz)} · ${time(d.startsAt, d.tz)}`, { size: 46, weight: 700, color: '#15803D' });
   k.text(`${mins(d.minutes)} · ${t.players(d.party)} · ${d.name}`, { size: 34, color: SUB, gap: 8 });
@@ -212,7 +252,7 @@ export async function ticketCard(d: {
 /* ───────────────────────── Offer poster ───────────────────────── */
 export async function offerCard(d: { centre: CardCentre; lang: Lang; offer: string; bookingUrl?: string | null }): Promise<Blob> {
   const t = L[d.lang]; const k = new Card();
-  k.header(d.centre, t.offer);
+  await k.header(d.centre, t.offer);
   k.space(10);
   k.text(d.offer || '…', { size: 64, weight: 800, align: 'center', gap: 12 });
   k.text(t.offerShow, { size: 30, color: SUB, align: 'center' });
@@ -224,7 +264,7 @@ export async function offerCard(d: { centre: CardCentre; lang: Lang; offer: stri
 /* ───────────────────────── Game started ───────────────────────── */
 export async function startedCard(d: { centre: CardCentre; tz: string; lang: Lang; resource: string; startedAt: string; planned: number | null; name: string; rate: string }): Promise<Blob> {
   const t = L[d.lang]; const k = new Card();
-  k.header(d.centre, t.started);
+  await k.header(d.centre, t.started);
   k.text(d.resource, { size: 64, weight: 800 });
   k.text(d.name, { size: 36, color: SUB, gap: 6 });
   k.rule();
@@ -241,7 +281,7 @@ export async function summaryCard(d: {
   byGame: { name: string; amount_paise: number }[]; snacks: number; byMethod: Record<string, number>; unpaid: number; alerts: number;
 }): Promise<Blob> {
   const k = new Card();
-  k.header(d.centre, `Day summary · ${new Date(`${d.date}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}`);
+  await k.header(d.centre, `Day summary · ${new Date(`${d.date}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}`);
   k.row('Sales', formatINR(d.revenue), { size: 56, weight: 800 });
   k.row('Expenses', `−${formatINR(d.expenses)}`, { size: 36, color: SUB });
   k.row('Net', formatINR(d.net), { size: 44, weight: 800, vcolor: d.net < 0 ? '#C2410C' : '#15803D' });

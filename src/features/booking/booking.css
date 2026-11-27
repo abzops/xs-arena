@@ -110,3 +110,11 @@
 .book-live-head .btn { min-height: 36px; }
 .ticket-game { margin: 2px 0 0; font-weight: 600; font-size: var(--t-md); }
 .chip[aria-pressed="true"] .muted { color: inherit; opacity: 0.75; }
+
+/* Centre profile: cover photo, logo, about */
+.book-cover { height: 168px; border-radius: var(--r-lg, 16px); background: var(--paper-2) center / cover no-repeat; margin-bottom: -44px; }
+.book-head.has-cover { padding-inline: 16px; }
+.book-logo { width: 88px; height: 88px; border-radius: 22px; object-fit: contain; background: #fff; padding: 6px;
+  box-shadow: 0 0 0 3px var(--paper, #fff), 0 4px 14px rgb(0 0 0 / 12%); }
+.book-logo.small { width: 56px; height: 56px; border-radius: 14px; padding: 4px; box-shadow: 0 1px 4px rgb(0 0 0 / 12%); margin-bottom: 4px; }
+.book-about { max-width: 52ch; }

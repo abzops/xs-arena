@@ -73,7 +73,7 @@ export function BillPage() {
               subtotal: b.subtotal_paise, discount: b.discount_paise, pointsUsed: b.points_redeemed, pointsPaise: b.points_paise, tax: b.tax_paise, gstRate: b.gst_rate_bp,
               total: b.total_paise, paid: b.paid_paise, methods, voided: b.status === 'void',
               earned: pts?.enabled && earned.data ? { earned: earned.data, balance: pts.balance } : null,
-              upi: centre.upi_id, bookingUrl: centre.booking_enabled ? `${window.location.origin}/b/${centre.slug}` : null,
+              upi: centre.upi_id, upiPayee: centre.upi_payee, upiQrPath: centre.upi_mode === 'own' ? centre.upi_qr_path : null, bookingUrl: centre.booking_enabled ? `${window.location.origin}/b/${centre.slug}` : null,
             })} />}
           <button className="btn" onClick={() => window.print()}><Printer size={18} /> Print</button>
           {can('floor.operate') && <BackLink className="btn primary" to={`/s/${centre.slug}/floor`}>Back to floor</BackLink>}

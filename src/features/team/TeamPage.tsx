@@ -1,3 +1,4 @@
+import { mediaUrl } from '../../lib/media';
 import { useMutation } from '@tanstack/react-query';
 import { Copy, KeyRound, MessageCircle, Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -38,7 +39,9 @@ export function TeamPage() {
           {list.map((s) => (
             <li key={s.id}>
               <button className="item" disabled={!manage} onClick={() => setEditing(s)} style={s.status !== 'active' ? { opacity: 0.55 } : undefined}>
-                <span className="avatar" aria-hidden style={{ boxShadow: `inset 0 0 0 2px ${s.color}` }}>{initials(s.display_name)}</span>
+                {s.avatar_path
+                  ? <img className="avatar" src={mediaUrl(s.avatar_path) ?? ''} alt="" style={{ objectFit: 'cover', boxShadow: `0 0 0 2px ${s.color}` }} data-testid="team-photo" />
+                  : <span className="avatar" aria-hidden style={{ boxShadow: `inset 0 0 0 2px ${s.color}` }}>{initials(s.display_name)}</span>}
                 <span className="main-col">
                   <span className="title">{s.display_name}{s.id === me.id && <span className="muted"> (you)</span>}</span>
                   <span className="meta"><span>{s.title || ROLE_LABEL[s.role]}</span>{s.username && <span className="mono">{s.username}</span>}{s.phone && <span>{s.phone}</span>}</span>

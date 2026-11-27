@@ -2,7 +2,7 @@ import { BookingSettings } from '../booking/BookingSettings';
 import { LoyaltySettings } from '../loyalty/Loyalty';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCentre } from '../../app/centre';
 import { AppearanceControl } from '../../components/Appearance';
 import { Field, Notice, useToast } from '../../components/ui';
@@ -11,9 +11,11 @@ import { supabase } from '../../lib/supabase';
 import { PLAN_LABEL, ROLE_LABEL } from '../../lib/types';
 import { AlertSettings } from '../floor/FloorPage';
 import { TvSettings } from '../tv/TvSettings';
+import { MyPhoto, ProfilePictures, UpiSetup } from './CentreProfile';
 import { Link } from 'react-router';
 
 export function SettingsPage() {
+  useEffect(() => { if (window.location.hash === '#my-profile') document.getElementById('my-profile')?.scrollIntoView({ block: 'center' }); }, []);
   const { centre, can, role, plan, subscription, hasFeature } = useCentre();
   const qc = useQueryClient();
   const toast = useToast();
@@ -23,6 +25,8 @@ export function SettingsPage() {
     open_time: centre.open_time.slice(0, 5), close_time: centre.close_time.slice(0, 5), upi_id: centre.upi_id ?? '', gst_enabled: centre.gst_enabled, gstin: centre.gstin ?? '',
     gst_pct: String(centre.gst_rate_bp / 100), prices_include_tax: centre.prices_include_tax, invoice_prefix: centre.invoice_prefix,
     require_customer: centre.require_customer,
+    about: centre.about ?? '', maps_url: centre.maps_url ?? '', instagram: centre.instagram ?? '',
+    upi_payee: centre.upi_payee ?? '', upi_mode: centre.upi_mode ?? 'amount',
   });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
 
@@ -31,11 +35,18 @@ export function SettingsPage() {
       if (f.gst_enabled && f.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(f.gstin.toUpperCase())) throw new Error('GSTIN looks invalid');
       if (f.close_time === f.open_time) throw new Error('Opening and closing time cannot be the same');
       if (f.upi_id && !/^[A-Za-z0-9._-]{2,64}@[A-Za-z0-9.-]{2,64}$/.test(f.upi_id.trim())) throw new Error('UPI ID looks invalid (example: arena@okicici)');
+      if (f.upi_mode === 'amount' && !f.upi_id.trim() && centre.upi_qr_path) throw new Error('Add your UPI ID for exact-amount QRs, or choose "My uploaded QR"');
+      const maps = f.maps_url.trim();
+      if (maps && !/^https:\/\/\S+$/.test(maps)) throw new Error('Google Maps link should start with https://');
+      const insta = f.instagram.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/.*$/, '');
+      if (insta && !/^[A-Za-z0-9._]{1,30}$/.test(insta)) throw new Error('Instagram name looks invalid (example: xsarena.kochi)');
       const { error } = await supabase.from('centres').update({
         name: f.name.trim(), phone: f.phone || null, email: f.email || null, address: f.address || null, city: f.city || null,
         open_time: f.open_time, close_time: f.close_time, upi_id: f.upi_id.trim() || null, gst_enabled: f.gst_enabled, gstin: f.gstin ? f.gstin.toUpperCase() : null,
         gst_rate_bp: Math.round(Number(f.gst_pct) * 100), prices_include_tax: f.prices_include_tax,
         invoice_prefix: f.invoice_prefix.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'INV', require_customer: f.require_customer,
+        about: f.about.trim().slice(0, 300) || null, maps_url: maps || null, instagram: insta || null,
+        upi_payee: f.upi_payee.trim().slice(0, 60) || null, upi_mode: f.upi_mode === 'own' && centre.upi_qr_path ? 'own' : 'amount',
         updated_at: new Date().toISOString(),
       }).eq('id', centre.id);
       if (error) throw error;
@@ -92,6 +103,17 @@ export function SettingsPage() {
             </div>
             <Field label="Email"><input className="input" type="email" value={f.email} onChange={set('email')} /></Field>
           </section>
+          <section className="card stack lg" data-guide="profile">
+            <h2>Centre profile</h2>
+            <ProfilePictures />
+            <Field label="About your centre" hint={`${f.about.length}/300 · shown on your booking page`}>
+              <textarea className="input" rows={3} maxLength={300} value={f.about} data-testid="about" onChange={set('about')}
+                placeholder="4 snooker tables, 6 PS5s and an RC track. Open till midnight." /></Field>
+            <div className="grid-2">
+              <Field label="Google Maps link"><input className="input" inputMode="url" value={f.maps_url} data-testid="maps-url" onChange={set('maps_url')} placeholder="https://maps.app.goo.gl/…" /></Field>
+              <Field label="Instagram"><input className="input" value={f.instagram} data-testid="instagram" onChange={set('instagram')} placeholder="xsarena.kochi" autoCapitalize="none" /></Field>
+            </div>
+          </section>
           <section className="card stack lg">
             <h2>Customers</h2>
             <label className="check-row" style={{ padding: 0 }}>
@@ -106,8 +128,13 @@ export function SettingsPage() {
               <Field label="Opens"><input className="input" type="time" value={f.open_time} onChange={set('open_time')} /></Field>
               <Field label="Closes"><input className="input" type="time" value={f.close_time} onChange={set('close_time')} /></Field>
             </div>
-            <Field label="UPI ID for payment QR" hint="Customers scan a QR with the exact bill amount. Example: arena@okicici">
-              <input className="input" value={f.upi_id} onChange={set('upi_id')} placeholder="yourcentre@okaxis" autoCapitalize="none" /></Field>
+            <UpiSetup f={f} onChange={(p) => setF((cur) => ({ ...cur, ...p }))} />
+            <div className="grid-2">
+              <Field label="UPI ID" hint="Filled in from your QR. Example: arena@okicici">
+                <input className="input" value={f.upi_id} data-testid="upi-id" onChange={set('upi_id')} placeholder="yourcentre@okaxis" autoCapitalize="none" /></Field>
+              <Field label="Name customers see when paying" hint="Leave empty to use your centre name">
+                <input className="input" value={f.upi_payee} data-testid="upi-payee" onChange={set('upi_payee')} placeholder={centre.name} /></Field>
+            </div>
           </section>
           <section className="card stack lg">
             <h2>GST and bills</h2>
@@ -128,6 +155,8 @@ export function SettingsPage() {
           <button className="btn primary block xl" disabled={save.isPending || f.name.trim().length < 2} onClick={() => save.mutate()}>Save settings</button>
         </>
       ) : <Notice tone="info">Only the centre owner can change centre settings. You are signed in as {ROLE_LABEL[role]}.</Notice>}
+
+      <section className="card stack" id="my-profile" data-testid="my-profile"><h2>My profile</h2><MyPhoto /></section>
 
       <section className="card row" style={{ justifyContent: 'space-between' }}>
         <div><h2>Account</h2><p className="muted" style={{ fontSize: 'var(--t-sm)' }}>XS Arena by Xelorsoft · support@xelorsoft.com</p></div>

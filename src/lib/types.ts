@@ -12,12 +12,16 @@ export type Centre = {
   invoice_prefix: string; invoice_seq: number; customer_seq: number; status: string; onboarded_at: string | null; created_at: string;
   /** New customers must give name + phone before a game or waiting-list entry (pilot feedback, on by default). */
   require_customer: boolean;
+  /** Centre profile (public: booking page, ticket, receipt, WhatsApp images). Paths are in the "centre-media" bucket. */
+  logo_path: string | null; cover_path: string | null; about: string | null; maps_url: string | null; instagram: string | null;
+  /** 'amount' = XS Arena draws a QR with the exact amount from upi_id; 'own' = show the centre's uploaded QR. */
+  upi_mode: 'amount' | 'own'; upi_qr_path: string | null; upi_payee: string | null;
 };
 export type Subscription = {
   centre_id: string; plan: PlanCode; status: 'trialing' | 'active' | 'past_due' | 'cancelled'; trial_ends_at: string; paid_until: string | null;
 };
 export type Staff = {
-  id: string; centre_id: string; user_id: string | null; role: Role; display_name: string; title: string | null; phone: string | null; email: string | null; username: string | null; guide_seen_at?: string | null;
+  id: string; centre_id: string; user_id: string | null; role: Role; display_name: string; title: string | null; phone: string | null; email: string | null; username: string | null; guide_seen_at?: string | null; avatar_path?: string | null;
   color: string; sort: number; status: 'active' | 'inactive';
 };
 export type Customer = {
