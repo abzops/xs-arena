@@ -9,6 +9,7 @@ import { Logo, Notice } from '../../components/ui';
 import { formatDay } from '../../lib/dates';
 import { errorMessage } from '../../lib/errors';
 import { formatINR } from '../../lib/money';
+import { upiLink } from '../../lib/messages';
 import { rpc } from '../../lib/supabase';
 import './booking.css';
 import { bookingLabel, ticketUrl, type Booking } from './types';
@@ -16,7 +17,8 @@ import { bookingLabel, ticketUrl, type Booking } from './types';
 type Ticket = {
   booking: Booking; can_cancel: boolean;
   centre: { name: string; slug: string; address: string | null; city: string | null; phone: string | null; timezone: string; hold_minutes: number;
-    logo_path?: string | null; maps_url?: string | null; instagram?: string | null };
+    logo_path?: string | null; maps_url?: string | null; instagram?: string | null;
+    upi_id?: string | null; upi_payee?: string | null; upi_mode?: 'amount' | 'own'; upi_qr_path?: string | null; advance_on?: boolean };
 };
 
 export function TicketPage() {
@@ -94,6 +96,7 @@ export function TicketPage() {
             {b.estimate_paise > 0 && <div><dt>Est. price</dt><dd>{formatINR(b.estimate_paise)} <small className="muted">at the centre</small></dd></div>}
             {where && <div className="span-2"><dt>Where</dt><dd>{c.name}, {where}</dd></div>}
           </dl>
+          {live && c.advance_on && b.advance_paise > 0 && <AdvanceBox b={b} c={c} />}
           {live && (
             <div className="ticket-qr">
               <div role="img" aria-label="Check-in QR code" dangerouslySetInnerHTML={{ __html: qr }} />
@@ -135,5 +138,28 @@ export function TicketPage() {
         <p className="book-foot muted">Powered by <Logo width={84} className="inline-logo" /></p>
       </div>
     </main>
+  );
+}
+
+/** Advance by the centre's own UPI: their uploaded QR (customer types the amount) or a QR with the amount filled in. */
+function AdvanceBox({ b, c }: { b: Booking; c: Ticket['centre'] }) {
+  const [svg, setSvg] = useState('');
+  const own = c.upi_mode === 'own' && c.upi_qr_path ? mediaUrl(c.upi_qr_path) : null;
+  const link = !own && c.upi_id ? upiLink(c.upi_id, c.upi_payee || c.name, b.advance_paise, `Advance ${b.code}`) : null;
+  useEffect(() => {
+    if (!link) return;
+    QRCode.toString(link, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }).then(setSvg).catch(() => undefined);
+  }, [link]);
+  if (b.paid_paise > 0) return <Notice tone="ok">Advance {formatINR(b.paid_paise)} received. It comes off your bill.</Notice>;
+  if (!own && !link) return null;
+  return (
+    <div className="ticket-advance card stack" data-testid="ticket-advance">
+      <b>Pay the advance: {formatINR(b.advance_paise)}</b>
+      <span className="muted" style={{ fontSize: 'var(--t-sm)' }}>
+        Pay by any UPI app{own ? ` and enter ${formatINR(b.advance_paise)}` : ''}. Show the payment at the counter; it comes off your bill.</span>
+      {own ? <img src={own} alt={`UPI QR of ${c.name}`} className="upi-own-img" style={{ margin: '0 auto' }} />
+        : <div className="ticket-advance-qr" role="img" aria-label={`UPI QR for ${formatINR(b.advance_paise)}`} dangerouslySetInnerHTML={{ __html: svg }} />}
+      {link && <a className="btn block" href={link}>Open UPI app</a>}
+    </div>
   );
 }

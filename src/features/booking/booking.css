@@ -118,3 +118,5 @@
   box-shadow: 0 0 0 3px var(--paper, #fff), 0 4px 14px rgb(0 0 0 / 12%); }
 .book-logo.small { width: 56px; height: 56px; border-radius: 14px; padding: 4px; box-shadow: 0 1px 4px rgb(0 0 0 / 12%); margin-bottom: 4px; }
 .book-about { max-width: 52ch; }
+.ticket-advance { padding: 16px; text-align: center; gap: 10px; }
+.ticket-advance-qr svg { width: 220px; height: 220px; display: block; margin: 0 auto; }

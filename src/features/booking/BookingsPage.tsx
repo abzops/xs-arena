@@ -118,7 +118,7 @@ function BookingRow({ b, onSeat }: { b: Booking; onSeat: (c: CheckIn) => void })
   });
   const live = b.status === 'confirmed' || b.status === 'late' || b.status === 'arrived';
   return (
-    <li className={`item booking-row st-${b.status}`}>
+    <li className={`item booking-row st-${b.status}`} data-code={b.code}>
       <div className="bk-time"><b className="num">{time(b.starts_at)}</b><span className="muted">{durationLabel(b.minutes)}</span></div>
       <div className="main-col">
         <span className="title">{b.name} <span className={`ticket-status st-${bookingLabel(b).tone}`}>{bookingLabel(b).label}</span></span>
@@ -127,6 +127,7 @@ function BookingRow({ b, onSeat }: { b: Booking; onSeat: (c: CheckIn) => void })
           {b.resource && ` · ${b.resource}`} · <span className="code">{b.code}</span>{b.source === 'staff' && ' · phone'}
         </span>
         {b.note && <span className="meta">“{b.note}”</span>}
+        {centre.booking_advance_on && b.advance_paise > 0 && <AdvanceChip b={b} />}
       </div>
       {live && (
         <div className="row bk-actions">
@@ -140,6 +141,28 @@ function BookingRow({ b, onSeat }: { b: Booking; onSeat: (c: CheckIn) => void })
         </div>
       )}
     </li>
+  );
+}
+
+/** Advance by UPI: staff tap when the customer shows the payment (undo until it is on a bill). */
+function AdvanceChip({ b }: { b: Booking }) {
+  const { centre } = useCentre();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const mark = useMutation({
+    mutationFn: (received: boolean) => rpc('mark_booking_advance', { p_centre: centre.id, p_booking: b.id, p_received: received }),
+    onSuccess: async (_r, received) => { await qc.invalidateQueries({ queryKey: ['bookings', centre.id] }); toast(received ? `Advance ${formatINR(b.advance_paise)} received` : 'Advance marked not received'); },
+    onError: (e) => toast(errorMessage(e)),
+  });
+  const live = b.status === 'confirmed' || b.status === 'late' || b.status === 'arrived';
+  if (b.paid_paise > 0) return (
+    <span className="meta" data-testid="advance-paid"><span className="badge ok">Advance {formatINR(b.paid_paise)} paid</span>
+      {live && <button type="button" className="btn small ghost" style={{ minHeight: 0, padding: '2px 8px' }} disabled={mark.isPending} onClick={() => mark.mutate(false)}>Undo</button>}</span>
+  );
+  if (!live) return null;
+  return (
+    <span className="meta"><button type="button" className="btn small" data-testid="advance-received" disabled={mark.isPending} onClick={() => mark.mutate(true)}>
+      <Check size={14} /> Advance {formatINR(b.advance_paise)} received</button></span>
   );
 }
 
@@ -220,6 +243,7 @@ export function SeatSheet({ data, onClose }: { data: CheckIn; onClose: () => voi
         <div className="book-summary">
           <b>{b.activity}{b.game ? ` · ${b.game}` : ''} · {durationLabel(b.minutes)} · {b.party_size} player{b.party_size > 1 ? 's' : ''}</b>
           <span>Booked {time(b.starts_at)} – {time(b.ends_at)} · code {b.code}</span>
+          {centre.booking_advance_on && b.paid_paise > 0 && <span>Advance {formatINR(b.paid_paise)} paid by UPI — it comes off the bill</span>}
           {data.balance_paise > 0 && <span className="muted">About {formatINR(data.balance_paise)} to pay after the game</span>}
           {b.note && <span className="muted">“{b.note}”</span>}
         </div>

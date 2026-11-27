@@ -33,18 +33,25 @@ export function BookingSettings() {
     },
   });
   const [f, setF] = useState({
-    enabled: centre.booking_enabled, advance: String(centre.booking_advance_bp / 100), hold: centre.booking_hold_minutes,
+    enabled: centre.booking_enabled, advance: String(centre.booking_advance_bp / 100), advanceOn: centre.booking_advance_on, hold: centre.booking_hold_minutes,
     days: centre.booking_days_ahead, lead: centre.booking_lead_minutes, durations: centre.booking_durations, note: centre.booking_note ?? '',
   });
   const [rows, setRows] = useState<Act[]>([]);
   useEffect(() => { if (acts.data) setRows(acts.data); }, [acts.data]);
   useEffect(() => { QRCode.toString(link, { type: 'svg', margin: 1 }).then(setQr).catch(() => undefined); }, [link]);
 
+  const hasUpi = !!(centre.upi_id || (centre.upi_mode === 'own' && centre.upi_qr_path));
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const adv = Number(f.advance);
       if (!Number.isFinite(adv) || adv < 0 || adv > 100) throw new Error('Advance must be 0 to 100%');
+      if (f.advanceOn && adv <= 0) throw new Error('Enter the advance percent, or switch the advance off');
+      if (f.advanceOn && !hasUpi) throw new Error('Add your UPI QR or UPI ID in Settings → Hours and payments first');
       if (!f.durations.length) throw new Error('Pick at least one booking length');
+      if (f.advanceOn !== centre.booking_advance_on) {
+        const { error } = await supabase.from('centres').update({ booking_advance_on: f.advanceOn, updated_at: new Date().toISOString() }).eq('id', centre.id);
+        if (error) throw error;
+      }
       return rpc('save_booking_settings', { p_centre: centre.id, p_settings: {
         enabled: f.enabled, advance_bp: Math.round(adv * 100), hold_minutes: f.hold, days_ahead: f.days, lead_minutes: f.lead,
         durations: f.durations, note: f.note, activities: rows.map((r) => ({ id: r.id, online_bookable: r.online_bookable, walkin_reserve: r.walkin_reserve })),
@@ -99,8 +106,19 @@ export function BookingSettings() {
         <Field label="Minimum notice">
           <select className="input" value={f.lead} onChange={(e) => setF({ ...f, lead: Number(e.target.value) })}>
             {[0, 15, 30, 60, 120, 240].map((m) => <option key={m} value={m}>{m === 0 ? 'None' : m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? 's' : ''}`}</option>)}</select></Field>
-        <Field label="Advance (%)" hint="Collected online once payments are switched on. Until then customers pay at the centre.">
-          <input className="input" inputMode="decimal" value={f.advance} onChange={(e) => setF({ ...f, advance: e.target.value })} /></Field>
+      </div>
+      <div className="field" data-testid="advance-setting">
+        <label className="check-row" style={{ padding: 0 }}>
+          <input type="checkbox" checked={f.advanceOn} data-testid="advance-on" onChange={(e) => setF({ ...f, advanceOn: e.target.checked })} />
+          <span className="grow">Ask for an advance by UPI
+            <span className="muted" style={{ display: 'block', fontSize: 'var(--t-sm)' }}>
+              The customer's ticket shows your UPI QR with the advance amount. When they show the payment, tap "Advance received" in Bookings. It comes off their bill.</span></span>
+        </label>
+        {f.advanceOn && (
+          <Field label="Advance (% of the booking)">
+            <input className="input" inputMode="decimal" value={f.advance} data-testid="advance-pct" onChange={(e) => setF({ ...f, advance: e.target.value })} style={{ maxWidth: 140 }} /></Field>
+        )}
+        {f.advanceOn && !hasUpi && <Notice tone="warn">Add your UPI QR or UPI ID in Settings → Hours and payments first.</Notice>}
       </div>
       <Field label="Note on the booking page"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })}
         placeholder="e.g. Shoes off on the snooker floor · Free parking behind the building" maxLength={200} /></Field>

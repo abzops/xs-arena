@@ -22,7 +22,7 @@ export type TabPreview = {
     players: number; lines: { label: string; amount_paise: number; overtime?: boolean }[]; amount_paise: number;
     planned_minutes?: number | null; charge_booked?: boolean }[];
   items: { id: string; name: string; qty: number; unit_price_paise: number; total_paise: number }[];
-  subtotal_paise: number; gst_enabled: boolean; gst_rate_bp: number; prices_include_tax: boolean;
+  subtotal_paise: number; advance_paise?: number; gst_enabled: boolean; gst_rate_bp: number; prices_include_tax: boolean;
 };
 
 type PayMode = 'cash' | 'upi' | 'card' | 'split';
@@ -102,10 +102,14 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
   const net = Math.max(0, sub - Math.max(0, disc) - ptsPaise);
   const tax = !t?.gst_enabled ? 0 : t.prices_include_tax ? Math.round((net * t.gst_rate_bp) / (10000 + t.gst_rate_bp)) : Math.round((net * t.gst_rate_bp) / 10000);
   const total = t?.gst_enabled && !t.prices_include_tax ? net + tax : net;
+  // Advance the customer already paid by UPI for their booking: added as a payment when the bill closes.
+  const adv = t?.advance_paise ?? 0;
+  const advUse = Math.min(adv, total);
+  const due = total - advUse;
   const payments = useMemo(() => {
     if (mode === 'split') return (['cash', 'upi', 'card'] as const).map((m) => ({ method: m, amount_paise: parseINR(split[m]) ?? 0 })).filter((p) => p.amount_paise > 0);
-    return [{ method: mode, amount_paise: total }];
-  }, [mode, split, total]);
+    return due > 0 ? [{ method: mode, amount_paise: due }] : [];
+  }, [mode, split, due]);
   const paying = payments.reduce((a, p) => a + p.amount_paise, 0);
   const cashGiven = parseINR(received) ?? 0;
 
@@ -117,14 +121,15 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
   });
 
   const close = useMutation({
-    mutationFn: () => rpc<{ bill_id: string; bill_no: string; points_earned?: number }>('close_tab', {
+    mutationFn: () => rpc<{ bill_id: string; bill_no: string; points_earned?: number; advance_refund_paise?: number }>('close_tab', {
       p_centre: centre.id, p_tab: tabId, p_discount_paise: Math.max(0, disc), p_discount_reason: reason || null, p_payments: payments, p_key: key,
       p_points: reward ? 0 : ptsUsed, p_reward: reward?.id ?? null,
     }),
     onSuccess: async (b) => {
       await Promise.all([qc.invalidateQueries({ queryKey: ['floor', centre.id] }), qc.invalidateQueries({ queryKey: ['dashboard', centre.id] }),
         qc.invalidateQueries({ queryKey: ['bills', centre.id] }), qc.invalidateQueries({ queryKey: ['products', centre.id] })]);
-      toast(`Bill ${b.bill_no} saved${b.points_earned ? ` · +${b.points_earned} points` : ''}`);
+      toast(`Bill ${b.bill_no} saved${b.points_earned ? ` · +${b.points_earned} points` : ''}`
+        + (b.advance_refund_paise ? ` · give back ${formatINR(b.advance_refund_paise)} of the advance` : ''));
       onClose();
       navigate(`/s/${centre.slug}/bills/${b.bill_id}`);
     },
@@ -132,7 +137,7 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
 
   // Closing without collecting keeps the bill open — say so, so it isn't forgotten.
   const leave = () => {
-    if (!close.isSuccess && total > 0) toast(`${formatINR(total)} not collected yet — it's waiting in Open bills`);
+    if (!close.isSuccess && due > 0) toast(`${formatINR(due)} not collected yet — it's waiting in Open bills`);
     onClose();
   };
 
@@ -225,35 +230,40 @@ export function BillSheet({ tabId, onClose }: { tabId: string; onClose: () => vo
             {ptsPaise > 0 && <div className="bill-line" style={{ border: 0, padding: '2px 0' }}><span className="muted">{reward ? `🎁 ${reward.name} (${ptsUsed} pts)` : `Points (${ptsUsed})`}</span><span className="num">−{formatINR(ptsPaise)}</span></div>}
             {tax > 0 && <div className="bill-line" style={{ border: 0, padding: '2px 0' }}><span className="muted">GST {t.gst_rate_bp / 100}%{t.prices_include_tax ? ' (included)' : ''}</span><span className="num">{formatINR(tax)}</span></div>}
             <div className="bill-total"><span>Total</span><span className="num">{formatINR(total)}</span></div>
+            {adv > 0 && <>
+              <div className="bill-line" style={{ border: 0, padding: '2px 0' }} data-testid="bill-advance"><span className="muted">Advance paid by UPI</span><span className="num">−{formatINR(advUse)}</span></div>
+              <div className="bill-total" data-testid="bill-due"><span>To pay now</span><span className="num">{formatINR(due)}</span></div>
+              {adv > total && <Notice tone="warn">The advance was {formatINR(adv)}. Give back {formatINR(adv - total)} to the customer.</Notice>}
+            </>}
           </div>
 
           <Segmented label="Payment" value={mode} onChange={setMode} options={[
             { value: 'cash', label: 'Cash' }, { value: 'upi', label: 'UPI' }, { value: 'card', label: 'Card' }, { value: 'split', label: 'Split' }]} />
-          {mode === 'cash' && total > 0 && (
-            <Field label="Cash received (optional)" hint={cashGiven > total ? `Give back ${formatINR(cashGiven - total)}` : undefined}>
-              <input className="input num" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} placeholder={paiseToInput(total)} /></Field>
+          {mode === 'cash' && due > 0 && (
+            <Field label="Cash received (optional)" hint={cashGiven > due ? `Give back ${formatINR(cashGiven - due)}` : undefined}>
+              <input className="input num" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} placeholder={paiseToInput(due)} /></Field>
           )}
-          {mode === 'upi' && total > 0 && <UpiQr amount={total} note={`${centre.name} bill`} />}
+          {mode === 'upi' && due > 0 && <UpiQr amount={due} note={`${centre.name} bill`} />}
           {mode === 'split' && (
             <div className="stack">
               {(['cash', 'upi', 'card'] as const).map((m) => (
                 <div key={m} className="pay-row">
                   <span style={{ textTransform: 'capitalize' }}>{m === 'upi' ? 'UPI' : m}</span>
                   <input className="input num" inputMode="decimal" value={split[m]} onChange={(e) => setSplit({ ...split, [m]: e.target.value })} placeholder="0" />
-                  <button className="btn small ghost" onClick={() => setSplit({ ...split, [m]: paiseToInput(Math.max(0, total - (paying - (parseINR(split[m]) ?? 0)))) })}>Rest</button>
+                  <button className="btn small ghost" onClick={() => setSplit({ ...split, [m]: paiseToInput(Math.max(0, due - (paying - (parseINR(split[m]) ?? 0)))) })}>Rest</button>
                 </div>
               ))}
-              <span className={`muted ${paying !== total ? 'tone-warn' : ''}`} style={{ fontSize: 'var(--t-sm)' }}>
-                {paying < total ? `${formatINR(total - paying)} will be saved as due` : paying > total ? `${formatINR(paying - total)} too much` : 'Fully paid'}</span>
+              <span className={`muted ${paying !== due ? 'tone-warn' : ''}`} style={{ fontSize: 'var(--t-sm)' }}>
+                {paying < due ? `${formatINR(due - paying)} will be saved as due` : paying > due ? `${formatINR(paying - due)} too much` : 'Fully paid'}</span>
               {(parseINR(split.upi) ?? 0) > 0 && <UpiQr amount={parseINR(split.upi)!} note={`${centre.name} bill`} />}
             </div>
           )}
 
           {close.error && <Notice tone="bad">{errorMessage(close.error)}</Notice>}
           <div className="bill-cta">
-          <button className="btn primary block xl" disabled={close.isPending || (!t.games.length && !t.items.length) || disc < 0 || disc > sub || (disc > 0 && !reason.trim()) || paying > total}
+          <button className="btn primary block xl" disabled={close.isPending || (!t.games.length && !t.items.length) || disc < 0 || disc > sub || (disc > 0 && !reason.trim()) || paying > due}
             onClick={() => close.mutate()}>
-            {close.isPending ? <span className="spinner" /> : mode === 'upi' ? `UPI received · close ${formatINR(total)}` : `Close bill · ${formatINR(total)}`}
+            {close.isPending ? <span className="spinner" /> : due === 0 ? `Close bill · paid by advance` : mode === 'upi' ? `UPI received · close ${formatINR(due)}` : `Close bill · ${formatINR(due)}`}
           </button>
           </div>
         </div>

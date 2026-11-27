@@ -7,12 +7,25 @@ import { useCentre } from '../../app/centre';
 import { AppearanceControl } from '../../components/Appearance';
 import { Field, Notice, useToast } from '../../components/ui';
 import { errorMessage } from '../../lib/errors';
-import { supabase } from '../../lib/supabase';
+import { rpc, supabase } from '../../lib/supabase';
 import { PLAN_LABEL, ROLE_LABEL } from '../../lib/types';
 import { AlertSettings } from '../floor/FloorPage';
 import { TvSettings } from '../tv/TvSettings';
 import { MyPhoto, ProfilePictures, UpiSetup } from './CentreProfile';
 import { Link } from 'react-router';
+
+/** Snacks & stock is free during the pilot: the owner turns it on with one tap. */
+function FreeAddonButton() {
+  const { centre } = useCentre();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const on = useMutation({
+    mutationFn: () => rpc('claim_free_addon', { p_centre: centre.id, p_addon: 'snacks' }),
+    onSuccess: async () => { await qc.invalidateQueries({ queryKey: ['centre'] }); toast('Snacks & stock is on — free during the pilot'); },
+    onError: (e) => toast(errorMessage(e)),
+  });
+  return <button type="button" className="btn small primary" data-testid="addon-snacks" disabled={on.isPending} onClick={() => on.mutate()}>Turn on · free during pilot</button>;
+}
 
 export function SettingsPage() {
   useEffect(() => { if (window.location.hash === '#my-profile') document.getElementById('my-profile')?.scrollIntoView({ block: 'center' }); }, []);
@@ -84,7 +97,7 @@ export function SettingsPage() {
           {hasFeature('snacks')
             ? <span className="badge ok" data-testid="addon-snacks">On</span>
             : owner
-              ? <a className="btn small" data-testid="addon-snacks" href={`mailto:support@xelorsoft.com?subject=${encodeURIComponent(`Snacks add-on for ${centre.name}`)}&body=${encodeURIComponent(`Please add the Snacks & stock add-on for ${centre.name} (${centre.slug}).`)}`}>Add to my plan</a>
+              ? <FreeAddonButton />
               : <span className="badge neutral" data-testid="addon-snacks">Off</span>}
         </div>
       </section>

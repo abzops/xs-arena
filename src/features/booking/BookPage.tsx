@@ -238,14 +238,15 @@ export function BookPage() {
       {booking && act && slot && minutes && day && (
         <ConfirmSheet slug={slug} activityId={act.id} activityName={act.name} game={game} slot={slot} day={day} minutes={minutes} players={players}
           estimate={estimate} holdMinutes={c.hold_minutes} isToday={day === days[0]}
+          advance={c.advance_on && c.advance_bp > 0 ? Math.ceil((estimate * c.advance_bp) / 10000 / 100) * 100 : 0}
           onClose={() => setBooking(false)} onTaken={() => { setBooking(false); setRefresh((n) => n + 1); }} />
       )}
     </main>
   );
 }
 
-function ConfirmSheet({ slug, activityId, activityName, game, slot, day, minutes, players, estimate, holdMinutes, isToday, onClose, onTaken }: {
-  slug: string; activityId: string; activityName: string; game: string | null; slot: Slot; day: string; minutes: number; players: number; estimate: number;
+function ConfirmSheet({ slug, activityId, activityName, game, slot, day, minutes, players, estimate, holdMinutes, isToday, advance, onClose, onTaken }: {
+  slug: string; activityId: string; activityName: string; game: string | null; slot: Slot; day: string; minutes: number; players: number; estimate: number; advance: number;
   holdMinutes: number; isToday: boolean; onClose: () => void; onTaken: () => void;
 }) {
   const navigate = useNavigate();
@@ -287,6 +288,7 @@ function ConfirmSheet({ slug, activityId, activityName, game, slot, day, minutes
           <b>{activityName}{game ? ` · ${game}` : ''}</b>
           <span>{isToday ? 'Today' : formatDay(day)}, {time12(slot.local)} · {durationLabel(minutes)} · {players} player{players > 1 ? 's' : ''}</span>
           {estimate > 0 && <span className="muted">{formatINR(estimate)} for {durationLabel(minutes)}{players > 1 ? ` (${players} players)` : ''}, paid at the centre. If you play longer, the extra time is added.</span>}
+          {advance > 0 && <span data-testid="confirm-advance"><b>Advance {formatINR(advance)}</b> by UPI after booking. Your ticket shows the QR; it comes off your bill.</span>}
         </div>
         <label className="field"><span>Your name</span>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required maxLength={80} /></label>
